@@ -37,6 +37,16 @@ app.post('/twitch', (req, res) => {
   sendToDiscord(req.body);
 });
 
+app.get('/twitch', (req, res) => {
+  console.log('Got Twitch Confirmation');
+  console.log(req.query);
+  res
+    .header('Content-Type', 'text/plain')
+    .status(200)
+    .send(req.query['hub.challenge']);
+  sendToDiscord(req.query);
+});
+
 // {
 //   "hub.callback": "https://discord.com",
 //   "hub.mode": "subscribe",
