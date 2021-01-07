@@ -44,6 +44,26 @@ app.get('/twitch', (req, res) => {
 //   "hub.lease_seconds": 864000
 // }
 
+// TODO: remove this
+let temp = 0;
+
+app.post('/discord', (req, res) => {
+  console.log('Got Discord Command: ', req.body);
+  if (req.body.type === 1) {
+    console.log(req.headers);
+    if (temp === 0) {
+      res.status(401).end('invalid request signature');
+      temp++;
+    } else {
+      res.status(200).send({ type: 1 });
+      temp = 0;
+    }
+
+  } else {
+    console.log('WTF');
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`App listening...${PORT}`);
 });
