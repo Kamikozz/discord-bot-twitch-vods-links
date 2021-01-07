@@ -77,8 +77,7 @@ const getUserVideos = (userId = '') => {
           .replace('%{height}', '350'),
         vodUrl: `https://vod-secure.twitch.tv/${mappedObj.thumbnail_url.split('/')[5]}/chunked/index-dvr.m3u8`,
       };
-      console.dir(discordObj);
-      sendToDiscord(discordObj);
+      sendToDiscordFormatted(discordObj);
     });
   });
 };
@@ -94,8 +93,31 @@ const sendToDiscord = (json) => {
   };
   const req = https.request(options);
   req.write(JSON.stringify({
-    "content": JSON.stringify(json),
-    "avatar_url": 'https://picsum.photos/200/300',
+    content: JSON.stringify(json),
+    avatar_url: 'https://picsum.photos/200/300',
+  }));
+  req.end();
+};
+
+const sendToDiscordFormatted = ({ title, imageUrl, vodUrl }) => {
+  const options = {
+    hostname: 'discord.com',
+    path: '',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  };
+  const req = https.request(options);
+  req.write(JSON.stringify({
+    avatar_url: '',
+    content: `${title} | ${vodUrl}`,
+    embeds: [{
+      color: 6570405,
+      image: {
+        url: imageUrl,
+      }
+    }]
   }));
   req.end();
 };
