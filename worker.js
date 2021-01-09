@@ -13,15 +13,15 @@ app.use(bodyParser.json());
 const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
-  res.send('Hello World!');
+  res.send('<b>For more information <a href="https://github.com/kamikozz">@see</a></b>');
 });
 
 app.post('/twitch', (req, res) => {
   console.log(req.body);
   res.status(200).send('OK');
-  discord.sendToDiscord(req.body);
   if (req.body.data.length) {
     console.log('Stream Change Events');
+    discord.sendToDiscord(req.body);
   } else {
     console.log('Stream Offline Event');
     twitch.getUserVideos();
@@ -39,17 +39,35 @@ app.get('/twitch', (req, res) => {
 });
 
 app.post('/discord', (req, res) => {
-  console.log('Got Discord Command: ', req.body);
+  console.log('Got Discord Command:');
+  console.dir(req.body);
   const isValidRequest = utils.isValidRequest(
     req.get('X-Signature-Ed25519'),
     req.get('X-Signature-Timestamp'),
-    req.rawBody,
+    JSON.stringify(req.body),
   );
+  console.log('я дебил', isValidRequest);
   if (isValidRequest) {
-    if (req.body.type === 1) {
-      console.log(req.headers);
-    } else {
-      console.log('WTF');
+    res.status(200).end(JSON.stringify({ type: 1 }));
+    if (req.body.type !== 1) {
+      const command = req.body.data.name;
+      switch (command) {
+        case 'subscribe': {
+          console.log('Subscribe');
+          // TODO: @mention Subscription renewal and ends on 19.01.21 23:59
+          const userId = req.body.member.user.id;
+          const newDateTime = new Date(Date.now() + 864000 * 1000).toLocaleString('ru-RU');
+          discord.createMessage(
+            `<@${userId}> подписка обновлена и закончится ${newDateTime}`,
+            userId,
+          );
+          break;
+        }
+        default: {
+          console.error('No handler for command: ', command);
+          break;
+        }
+      }
     }
   } else {
     res.status(401).end('invalid request signature');

@@ -1,8 +1,9 @@
 const https = require('https');
 
+const WEBHOOK_PATH = '';
+
 const baseOptions = {
   hostname: 'discord.com',
-  path: '',
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -12,6 +13,7 @@ const baseOptions = {
 const sendToDiscord = (json) => {
   const options = {
     ...baseOptions,
+    path: WEBHOOK_PATH,
   };
   const req = https.request(options);
   req.write(JSON.stringify({
@@ -24,6 +26,7 @@ const sendToDiscord = (json) => {
 const sendToDiscordFormatted = ({ title, imageUrl, vodUrl }) => {
   const options = {
     ...baseOptions,
+    path: WEBHOOK_PATH,
   };
   const req = https.request(options);
   req.write(JSON.stringify({
@@ -39,7 +42,24 @@ const sendToDiscordFormatted = ({ title, imageUrl, vodUrl }) => {
   req.end();
 };
 
+const createMessage = (message, userId) => {
+  const options = {
+    ...baseOptions,
+    path: WEBHOOK_PATH,
+  };
+  const req = https.request(options);
+  req.write(JSON.stringify({
+    avatar_url: '',
+    content: message,
+    allowed_mentions: {
+      users: userId ? [userId] : [],
+    },
+  }));
+  req.end();
+};
+
 module.exports = {
   sendToDiscord,
   sendToDiscordFormatted,
+  createMessage,
 };
