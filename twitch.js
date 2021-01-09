@@ -1,12 +1,11 @@
 const https = require('https');
-const credentials = require('./credentials');
 const discord = require('./discord');
 
 const baseOptions = {
   hostname: 'api.twitch.tv',
   headers: {
-    'Authorization': `Bearer ${credentials.twitch.token}`,
-    'Client-Id': credentials.twitch.clientId,
+    'Authorization': `Bearer ${process.env.TWITCH_TOKEN}`,
+    'Client-Id': process.env.TWITCH_CLIENT_ID,
   },
 }
 
