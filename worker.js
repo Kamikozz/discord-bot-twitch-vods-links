@@ -39,14 +39,12 @@ app.get('/twitch', (req, res) => {
 });
 
 app.post('/discord', (req, res) => {
-  console.log('Got Discord Command:');
-  console.dir(req.body);
+  console.log('Got Discord Command: ', req.body);
   const isValidRequest = utils.isValidRequest(
     req.get('X-Signature-Ed25519'),
     req.get('X-Signature-Timestamp'),
     JSON.stringify(req.body),
   );
-  console.log('я дебил', isValidRequest);
   if (isValidRequest) {
     res.status(200).end(JSON.stringify({ type: 1 }));
     if (req.body.type !== 1) {
@@ -54,13 +52,18 @@ app.post('/discord', (req, res) => {
       switch (command) {
         case 'subscribe': {
           console.log('Subscribe');
-          // TODO: @mention Subscription renewal and ends on 19.01.21 23:59
           const userId = req.body.member.user.id;
-          const newDateTime = new Date(Date.now() + 864000 * 1000).toLocaleString('ru-RU');
-          discord.createMessage(
-            `<@${userId}> подписка обновлена и закончится ${newDateTime}`,
-            userId,
-          );
+          const subscriptionLeaseSeconds = 864000;
+          twitch.subscribe({
+            leaseSeconds: subscriptionLeaseSeconds,
+            callback: () => {
+              const newDateTime = new Date(Date.now() + subscriptionLeaseSeconds * 1000).toLocaleString('ru-RU');
+              discord.createMessage({
+                message: `<@${userId}> подписка обновлена и закончится ${newDateTime}`,
+                allowedUsersMentionsIds: [userId],
+              });
+            },
+          });
           break;
         }
         default: {
@@ -70,7 +73,7 @@ app.post('/discord', (req, res) => {
       }
     }
   } else {
-    res.status(401).end('invalid request signature');
+    res.status(401).end('Invalid request signature');
   }
 });
 

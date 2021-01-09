@@ -42,7 +42,7 @@ const sendToDiscordFormatted = ({ title, imageUrl, vodUrl }) => {
   req.end();
 };
 
-const createMessage = (message, userId) => {
+const createMessage = ({ message, allowedUsersMentionsIds = [] }) => {
   const options = {
     ...baseOptions,
     path: WEBHOOK_PATH,
@@ -52,7 +52,7 @@ const createMessage = (message, userId) => {
     avatar_url: '',
     content: message,
     allowed_mentions: {
-      users: userId ? [userId] : [],
+      users: allowedUsersMentionsIds,
     },
   }));
   req.end();

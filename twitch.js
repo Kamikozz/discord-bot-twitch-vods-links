@@ -2,26 +2,56 @@ const https = require('https');
 const credentials = require('./credentials');
 const discord = require('./discord');
 
-// TO SUBSCRIBE ON THE STREAM EVENTS
-// {
-//   "hub.callback": "https://discord.com",
-//   "hub.mode": "subscribe",
-//   "hub.topic": "https://api.twitch.tv/helix/streams?user_id=",
-//   "hub.lease_seconds": 864000
-// }
+const baseOptions = {
+  hostname: 'api.twitch.tv',
+  headers: {
+    'Authorization': `Bearer ${credentials.twitch.token}`,
+    'Client-Id': credentials.twitch.clientId,
+  },
+}
+
+const subscribe = ({
+  userId = '',
+  leaseSeconds = 0,
+  callback = () => {},
+  error = () => {
+    discord.createMessage({ message: 'При обновлении подписки что-то пошло не так' });
+  },
+}) => {
+  const options = {
+    ...baseOptions,
+    headers: {
+      ...baseOptions.headers,
+      'Content-Type': 'application/json',
+    },
+    path: `/helix/webhooks/hub`,
+    method: 'POST',
+  };
+  const req = https.request(options, (res) => {
+    const isOk = res.statusCode === 202;
+    if (isOk) {
+      callback();
+    } else {
+      error();
+    }
+  });
+  req.write(JSON.stringify({
+    'hub.callback': '/twitch',
+    'hub.mode': 'subscribe',
+    'hub.topic': `https://api.twitch.tv/helix/streams?user_id=${userId}`,
+    'hub.lease_seconds': leaseSeconds,
+  }));
+  req.end();
+};
 
 const getUserVideos = (userId = '') => {
   const options = {
-    hostname: 'api.twitch.tv',
+    ...baseOptions,
     path: `/helix/videos?user_id=${userId}`,
     method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${credentials.twitch.token}`,
-      'Client-Id': credentials.twitch.clientId,
-    },
   };
-  let responseData = '';
-  const req = https.get(options, (res) => {
+  https.get(options, (res) => {
+    let responseData = '';
     res.on('data', (chunk) => {
       responseData += chunk;
     });
@@ -46,4 +76,5 @@ const getUserVideos = (userId = '') => {
 
 module.exports = {
   getUserVideos,
+  subscribe,
 };
