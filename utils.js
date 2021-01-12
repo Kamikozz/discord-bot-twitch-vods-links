@@ -8,6 +8,9 @@ const isValidRequest = (signature, timestamp, requestBody) => {
   );
 };
 
+const isProduction = () => process.env.MODE === 'production';
+
 module.exports = {
   isValidRequest,
+  isProduction,
 };

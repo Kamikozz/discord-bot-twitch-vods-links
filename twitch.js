@@ -51,9 +51,7 @@ const getUserVideos = (userId = '') => {
   };
   https.get(options, (res) => {
     let responseData = '';
-    res.on('data', (chunk) => {
-      responseData += chunk;
-    });
+    res.on('data', (chunk) => responseData += chunk);
     res.on('end', () => {
       const parsedObj = JSON.parse(responseData);
       const lastVideo = parsedObj.data[0];

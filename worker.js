@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
-const utils = require('./utils');
+const utils, { isProduction } = require('./utils');
 const twitch = require('./twitch');
 const discord = require('./discord');
 
@@ -18,29 +18,38 @@ app.get('/', (req, res) => {
 });
 
 app.post('/twitch', (req, res) => {
-  console.log(req.body);
+  if (!isProduction()) {
+    console.log(req.body);
+  }
   res.status(200).send('OK');
   if (req.body.data.length) {
-    console.log('Stream Change Events');
-    discord.sendToDiscord(req.body);
+    if (!isProduction()) {
+      console.log('Stream Change Events');
+    }
+    // discord.sendToDiscord(req.body);
   } else {
-    console.log('Stream Offline Event');
+    if (!isProduction()) {
+      console.log('Stream Offline Event');
+    }
     twitch.getUserVideos();
   }
 });
 
 app.get('/twitch', (req, res) => {
-  console.log('Got Twitch Confirmation');
-  console.log(req.query);
+  if (!isProduction()) {
+    console.log('Got Twitch Confirmation', req.query);
+  }
   res
     .header('Content-Type', 'text/plain')
     .status(200)
     .send(req.query['hub.challenge']);
-  discord.sendToDiscord(req.query);
+  // discord.sendToDiscord(req.query);
 });
 
 app.post('/discord', (req, res) => {
-  console.log('Got Discord Command: ', req.body);
+  if (!isProduction()) {
+    console.log('Got Discord Command: ', req.body);
+  }
   const isValidRequest = utils.isValidRequest(
     req.get('X-Signature-Ed25519'),
     req.get('X-Signature-Timestamp'),
@@ -52,7 +61,9 @@ app.post('/discord', (req, res) => {
       const command = req.body.data.name;
       switch (command) {
         case 'subscribe': {
-          console.log('Subscribe');
+          if (!isProduction()) {
+            console.log('Subscribe');
+          }
           const userId = req.body.member.user.id;
           const subscriptionLeaseSeconds = 864000;
           twitch.subscribe({
@@ -68,7 +79,9 @@ app.post('/discord', (req, res) => {
           break;
         }
         default: {
-          console.error('No handler for command: ', command);
+          if (!isProduction()) {
+            console.error('No handler for command: ', command);
+          }
           break;
         }
       }
@@ -79,5 +92,7 @@ app.post('/discord', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`App listening...${PORT}`);
+  if (!isProduction()) {
+    console.log(`App listening...${PORT}`);
+  }
 });
