@@ -1,7 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
-const utils, { isProduction } = require('./utils');
+const utils = require('./utils');
+const { isProduction } = require('./utils');
 const twitch = require('./twitch');
 const discord = require('./discord');
 
@@ -17,7 +18,7 @@ app.get('/', (req, res) => {
   res.send('<b>For more information <a href="https://github.com/kamikozz">@see</a></b>');
 });
 
-app.post('/twitch', (req, res) => {
+app.post('/twitch', async (req, res) => {
   if (!isProduction()) {
     console.log(req.body);
   }
@@ -31,7 +32,16 @@ app.post('/twitch', (req, res) => {
     if (!isProduction()) {
       console.log('Stream Offline Event');
     }
-    twitch.getUserVideos();
+    const userVideos = await twitch.getUserVideos();
+    const lastVideo = userVideos[0];
+    const discordObj = {
+      title: lastVideo.title,
+      imageUrl: lastVideo.thumbnail_url
+        .replace('%{width}', '600')
+        .replace('%{height}', '350'),
+      vodUrl: `https://vod-secure.twitch.tv/${lastVideo.thumbnail_url.split('/')[5]}/chunked/index-dvr.m3u8`,
+    };
+    discord.sendToDiscordFormatted(discordObj);
   }
 });
 
