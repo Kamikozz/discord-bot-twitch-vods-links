@@ -1,4 +1,11 @@
-# Discord Bot for [](https://www.twitch.tv/) Twitch.tv videos' links generator
+# Discord Bot for Twitch.tv users' Twitch.tv videos' links generator
+
+## To create `DISCORD_WEBHOOK_URL` env param
+1. Go to your `Discord` channel in which you want to write messages.
+2. Press `gear` icon -> *Integration* -> *Webhooks* -> *Create new webhook*.
+3. Configurate it as you wish.
+4. Set up your `DISCORD_WEBHOOK_URL` env to webhook url you just created.
+* it should look like `/api/webhooks/.../...../` (without schema https & domain)
 
 ## To use [Slash Commands](https://discord.com/developers/docs/interactions/slash-commands)
 1. Create an Application on [Developer Portal](https://discord.com/developers/applications/)

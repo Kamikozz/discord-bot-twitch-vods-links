@@ -1,6 +1,9 @@
 const nacl = require('tweetnacl');
 
-const isValidRequest = (signature, timestamp, requestBody) => {
+const isValidRequest = (request) => {
+  const signature = request.get('X-Signature-Ed25519');
+  const timestamp = request.get('X-Signature-Timestamp');
+  const requestBody = JSON.stringify(request.body);
   return nacl.sign.detached.verify(
     Buffer.from(timestamp + requestBody),
     Buffer.from(signature, 'hex'),
@@ -10,7 +13,21 @@ const isValidRequest = (signature, timestamp, requestBody) => {
 
 const isProduction = () => process.env.MODE === 'production';
 
+const log = (...messages) => {
+  if (!isProduction()) {
+    console.log(...messages);
+  }
+};
+
+const error = (...messages) => {
+  if (!isProduction()) {
+    console.error(...messages);
+  }
+};
+
 module.exports = {
   isValidRequest,
   isProduction,
+  log,
+  error,
 };

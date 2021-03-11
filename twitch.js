@@ -1,4 +1,6 @@
 const https = require('https');
+
+const { TWITCH_SUBSCRIPTION_USER_ID } = require('./globals');
 const discord = require('./discord');
 
 const baseOptions = {
@@ -10,9 +12,9 @@ const baseOptions = {
 }
 
 const subscribe = ({
-  userId = '',
+  userId = TWITCH_SUBSCRIPTION_USER_ID,
   leaseSeconds = 0,
-  callback = () => {},
+  callback = () => { },
   error = () => {
     discord.createMessage({ message: 'При обновлении подписки что-то пошло не так' });
   },
@@ -35,7 +37,7 @@ const subscribe = ({
     }
   });
   req.write(JSON.stringify({
-    'hub.callback': '/twitch',
+    'hub.callback': `${process.env.HOST_URL}/twitch`,
     'hub.mode': 'subscribe',
     'hub.topic': `https://api.twitch.tv/helix/streams?user_id=${userId}`,
     'hub.lease_seconds': leaseSeconds,
@@ -43,7 +45,7 @@ const subscribe = ({
   req.end();
 };
 
-const getUserVideos = async (userId = '') => {
+const getUserVideos = async (userId = TWITCH_SUBSCRIPTION_USER_ID) => {
   const options = {
     ...baseOptions,
     path: `/helix/videos?user_id=${userId}`,

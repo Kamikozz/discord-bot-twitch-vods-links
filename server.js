@@ -1,8 +1,11 @@
 require('dotenv').config();
+
 const express = require('express');
 const bodyParser = require('body-parser');
+
+const { PORT, SUBSCRIPTION_LEASE_SECONDS } = require('./globals');
 const utils = require('./utils');
-const { isProduction } = require('./utils');
+const { log, error } = require('./utils');
 const twitch = require('./twitch');
 const discord = require('./discord');
 
@@ -12,28 +15,20 @@ app.use(bodyParser.urlencoded({
 }));
 app.use(bodyParser.json());
 
-const PORT = process.env.PORT || 3000;
-
 app.get('/', (req, res) => {
   res.send('<b>For more information <a href="https://github.com/kamikozz">@see</a></b>');
 });
 
 app.post('/twitch', async (req, res) => {
-  if (!isProduction()) {
-    console.log(req.body);
-  }
+  log(req.body);
   res.status(200).send('OK');
   if (req.body.data.length) {
-    if (!isProduction()) {
-      console.log('Stream Change Events');
-    }
+    log('Stream Change Events');
     // discord.sendToDiscord(req.body);
   } else {
-    if (!isProduction()) {
-      console.log('Stream Offline Event');
-    }
+    log('Stream Offline Event');
     const userVideos = await twitch.getUserVideos();
-    const lastVideo = userVideos[0];
+    const [lastVideo] = userVideos;
     const discordObj = {
       title: lastVideo.title,
       imageUrl: lastVideo.thumbnail_url
@@ -46,9 +41,7 @@ app.post('/twitch', async (req, res) => {
 });
 
 app.get('/twitch', (req, res) => {
-  if (!isProduction()) {
-    console.log('Got Twitch Confirmation', req.query);
-  }
+  log('Got Twitch Confirmation', req.query);
   res
     .header('Content-Type', 'text/plain')
     .status(200)
@@ -57,29 +50,20 @@ app.get('/twitch', (req, res) => {
 });
 
 app.post('/discord', (req, res) => {
-  if (!isProduction()) {
-    console.log('Got Discord Command: ', req.body);
-  }
-  const isValidRequest = utils.isValidRequest(
-    req.get('X-Signature-Ed25519'),
-    req.get('X-Signature-Timestamp'),
-    JSON.stringify(req.body),
-  );
+  log('Got Discord Command: ', req.body);
+  const isValidRequest = utils.isValidRequest(req);
   if (isValidRequest) {
     res.status(200).end(JSON.stringify({ type: 1 }));
     if (req.body.type !== 1) {
       const command = req.body.data.name;
       switch (command) {
         case 'subscribe': {
-          if (!isProduction()) {
-            console.log('Subscribe');
-          }
+          log('Subscribe');
           const userId = req.body.member.user.id;
-          const subscriptionLeaseSeconds = 864000;
           twitch.subscribe({
-            leaseSeconds: subscriptionLeaseSeconds,
+            leaseSeconds: SUBSCRIPTION_LEASE_SECONDS,
             callback: () => {
-              const newDateTime = new Date(Date.now() + subscriptionLeaseSeconds * 1000).toLocaleString('ru-RU');
+              const newDateTime = new Date(Date.now() + SUBSCRIPTION_LEASE_SECONDS * 1000).toLocaleString('ru-RU');
               discord.createMessage({
                 message: `<@${userId}> подписка обновлена и закончится ${newDateTime}`,
                 allowedUsersMentionsIds: [userId],
@@ -89,9 +73,7 @@ app.post('/discord', (req, res) => {
           break;
         }
         default: {
-          if (!isProduction()) {
-            console.error('No handler for command: ', command);
-          }
+          error('No handler for command: ', command);
           break;
         }
       }
@@ -102,7 +84,5 @@ app.post('/discord', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  if (!isProduction()) {
-    console.log(`App listening...${PORT}`);
-  }
+  log(`App listening...${PORT}`);
 });
