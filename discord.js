@@ -58,8 +58,37 @@ const createMessage = ({ message, allowedUsersMentionsIds = [] }) => {
   req.end();
 };
 
+// TODO: доделать алгоритм
+const getMessages = ({ channelId = process.env.DISCORD_BOT_CHANNEL_ID }) => {
+  const options = {
+    ...baseOptions,
+    headers: {
+      ...baseOptions.headers,
+      'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+    },
+    path: `/api/channels/${channelId}/messages`,
+    method: 'GET',
+  };
+  return new Promise((resolve, reject) => {
+    https.get(options, (res) => {
+      let responseData = '';
+      res.on('data', (chunk) => {
+        responseData += chunk;
+      });
+      res.on('end', () => {
+        const parsedJson = JSON.parse(responseData);
+        resolve(parsedJson);
+      });
+      res.on('error', () => {
+        reject();
+      });
+    });
+  });
+};
+
 module.exports = {
   sendToDiscord,
   sendToDiscordFormatted,
   createMessage,
+  getMessages,
 };
