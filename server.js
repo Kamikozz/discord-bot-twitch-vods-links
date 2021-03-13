@@ -12,12 +12,18 @@ const app = express();
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-// GET: /
 app.get('/', (req, res) => {
   res.send('<b>For more information <a href="https://github.com/kamikozz">@see</a></b>');
 });
 
-// POST: /twitch
+app.get('/twitch', (req, res) => {
+  log('Got Twitch Confirmation', req.query);
+  res
+    .header('Content-Type', 'text/plain')
+    .status(200)
+    .send(req.query['hub.challenge']);
+});
+
 app.post('/twitch', async (req, res) => {
   log(req.body);
   res.status(200).send('OK');
@@ -46,46 +52,71 @@ app.post('/twitch', async (req, res) => {
   }
 });
 
-// GET: /twitch
-app.get('/twitch', (req, res) => {
-  log('Got Twitch Confirmation', req.query);
-  res
-    .header('Content-Type', 'text/plain')
-    .status(200)
-    .send(req.query['hub.challenge']);
+app.post('/discord', async (req, res) => {
+  log('Got Discord Command: ', req.body);
+  if (!isValidRequest(req)) {
+    const errorText = 'Invalid request signature';
+    error(errorText);
+    return res.status(401).end(errorText);
+  }
+
+  const isPingRequest = req.body.type === 1; // https://discord.com/developers/docs/interactions/slash-commands#interaction-interactiontype
+  if (isPingRequest) {
+    log('Ping request');
+    return res.status(200).end(JSON.stringify({ type: 1 })); // https://discord.com/developers/docs/interactions/slash-commands#receiving-an-interaction
+  }
+
+  res.status(200).end();
+
+  const payload = req.body.data;
+  const command = payload.name;
+  switch (command) {
+    case 'subscribe': {
+      log('Subscribe');
+      const userId = req.body.member.user.id;
+      twitch.subscribe({
+        leaseSeconds: SUBSCRIPTION_LEASE_SECONDS,
+        callback: () => {
+          const newDateTime = new Date(Date.now() + SUBSCRIPTION_LEASE_SECONDS * 1000).toLocaleString('ru-RU');
+          discord.createMessage({
+            message: `<@${userId}> подписка обновлена и закончится ${newDateTime}`,
+            allowedUsersMentionsIds: [userId],
+          });
+        },
+      });
+      break;
+    }
+    case 'auth': {
+      log('Auth command');
+      const authResult = await twitch.auth({ clientId: process.env.TWITCH_CLIENT_ID });
+      log('Result of auth:', authResult);
+      // log(payload.options);
+      // const [{ value }] = payload.options;
+      // const [clientId, clientSecret] = value.trim().split(' ');
+      // log(clientId, clientSecret);
+      break;
+    }
+    default: {
+      error('No handler for command: ', command);
+      break;
+    }
+  }
 });
 
-// POST: /discord
-app.post('/discord', (req, res) => {
-  log('Got Discord Command: ', req.body);
-  if (isValidRequest(req)) {
-    res.status(200).end(JSON.stringify({ type: 1 }));
-    if (req.body.type !== 1) {
-      const command = req.body.data.name;
-      switch (command) {
-        case 'subscribe': {
-          log('Subscribe');
-          const userId = req.body.member.user.id;
-          twitch.subscribe({
-            leaseSeconds: SUBSCRIPTION_LEASE_SECONDS,
-            callback: () => {
-              const newDateTime = new Date(Date.now() + SUBSCRIPTION_LEASE_SECONDS * 1000).toLocaleString('ru-RU');
-              discord.createMessage({
-                message: `<@${userId}> подписка обновлена и закончится ${newDateTime}`,
-                allowedUsersMentionsIds: [userId],
-              });
-            },
-          });
-          break;
-        }
-        default: {
-          error('No handler for command: ', command);
-          break;
-        }
-      }
-    }
+app.get('/auth', async (req, res) => {
+  log('Got Twitch Auth', req.query);
+  const { clientId } = req.query;
+  const authResult = await twitch.auth({ clientId });
+  log('Result of auth:', authResult);
+  res.header('Content-Type', 'text/plain');
+  if (typeof authResult === 'string') {
+    res
+      .status(401)
+      .end(authResult);
   } else {
-    res.status(401).end('Invalid request signature');
+    res
+      .status(200)
+      .end('OK');
   }
 });
 

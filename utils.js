@@ -1,5 +1,8 @@
 const nacl = require('tweetnacl');
 
+/**
+ * Function that is need to validate your request if using Discord API
+ */
 const isValidRequest = (request) => {
   const signature = request.get('X-Signature-Ed25519');
   const timestamp = request.get('X-Signature-Timestamp');

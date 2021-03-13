@@ -16,11 +16,10 @@ const sendToDiscord = (json) => {
     path: process.env.DISCORD_WEBHOOK_PATH,
   };
   const req = https.request(options);
-  req.write(JSON.stringify({
+  req.end(JSON.stringify({
     content: JSON.stringify(json),
     avatar_url: DISCORD_BOT_AVATAR_URL,
   }));
-  req.end();
 };
 
 const sendToDiscordFormatted = ({ title, imageUrl, vodUrl }) => {
@@ -29,7 +28,7 @@ const sendToDiscordFormatted = ({ title, imageUrl, vodUrl }) => {
     path: process.env.DISCORD_WEBHOOK_PATH,
   };
   const req = https.request(options);
-  req.write(JSON.stringify({
+  req.end(JSON.stringify({
     avatar_url: DISCORD_BOT_AVATAR_URL,
     content: `${title} | ${vodUrl}`,
     embeds: [{
@@ -39,7 +38,6 @@ const sendToDiscordFormatted = ({ title, imageUrl, vodUrl }) => {
       }
     }]
   }));
-  req.end();
 };
 
 const createMessage = ({ message, allowedUsersMentionsIds = [] }) => {
@@ -48,14 +46,13 @@ const createMessage = ({ message, allowedUsersMentionsIds = [] }) => {
     path: process.env.DISCORD_WEBHOOK_PATH,
   };
   const req = https.request(options);
-  req.write(JSON.stringify({
+  req.end(JSON.stringify({
     avatar_url: DISCORD_BOT_AVATAR_URL,
     content: message,
     allowed_mentions: {
       users: allowedUsersMentionsIds,
     },
   }));
-  req.end();
 };
 
 // TODO: доделать алгоритм
