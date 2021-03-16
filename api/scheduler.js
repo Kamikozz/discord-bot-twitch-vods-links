@@ -50,13 +50,6 @@ const schedule = (when, url, body = '') => {
       },
     }));
   });
-  // return new Promise((res, rej) => {
-  //   res({
-  //     access_token: 'jxokxke99iz37',
-  //     expires_in: 5559211,
-  //     token_type: "bearer",
-  //   });
-  // });
 };
 
 const scheduleReauth = () => {

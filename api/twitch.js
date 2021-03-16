@@ -1,9 +1,10 @@
 const https = require('https');
 
-const { TWITCH_SUBSCRIPTION_USER_ID } = require('./globals');
-const { log, error } = require('./utils');
+const { TWITCH_SUBSCRIPTION_USER_ID } = require('../globals');
+const { log, error } = require('../utils');
 const discord = require('./discord');
 const scheduler = require('./scheduler');
+const heroku = require('./heroku');
 
 const baseOptions = {
   hostname: 'api.twitch.tv',
@@ -37,7 +38,7 @@ const token = () => {
   // });
   return new Promise((res, rej) => {
     res({
-      access_token: 'jxokxke99iz37iia7zuwt0c3kjgkcd',
+      access_token: 'jxokxke99iz3',
       expires_in: 5559211,
       token_type: "bearer",
     });
@@ -50,19 +51,25 @@ const auth = async ({
   const isEqual = clientId === process.env.TWITCH_CLIENT_ID;
   if (!isEqual) return 'ClientId doesn\'t match';
   const authenticationResult = await token();
+
   const { access_token } = authenticationResult;
   if (!access_token) return 'No \'access_token\' received';
-  // const herokuResponse = await heroku.setEnv('TWITCH_TOKEN', access_token);
-  // if (!herokuResponse error) => return 'Heroku error';
+
+  let configVariables = await heroku.getConfigVars();
+  if (!configVariables) return 'Heroku error: getConfigVars';
+  configVariables.TWITCH_TOKEN = access_token;
+  configVariables = await heroku.setConfigVars(configVariables);
+  if (!configVariables) return 'Heroku error: setConfigVars';
+
   const schedulerResponse = await scheduler.scheduleReauth() || {};
   const { id, message } = schedulerResponse;
   if (!id) return `Scheduler error: ${message}`;
-              // {
-              //   id: '9v1xU6Z1hSB2yMRTLXBNHg', 
-              //   when: '2021-03-15 00:42:37',
-              //   now: '2021-03-15 00:40:38',
-              //   user: '6sqdFXMtZCvYo1MtatrCL6'
-              // }
+      // {
+      //   id: '9v1xU6Z1hSB2yMRTLXBNHg',
+      //   when: '2021-03-15 00:42:37',
+      //   now: '2021-03-15 00:40:38',
+      //   user: '6sqdFXMtZCvYo1MtatrCL6'
+      // }
 
   // let mongoResponse = await mongo.get('settings');
   // mongoResponse.twitchTokenScheduledRenewalId = schedulerResponse.id;

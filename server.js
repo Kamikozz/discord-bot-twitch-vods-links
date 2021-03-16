@@ -5,8 +5,8 @@ const bodyParser = require('body-parser');
 
 const { PORT, SUBSCRIPTION_LEASE_SECONDS } = require('./globals');
 const { log, error, isValidRequest } = require('./utils');
-const twitch = require('./twitch');
-const discord = require('./discord');
+const twitch = require('./api/twitch');
+const discord = require('./api/discord');
 
 const app = express();
 app.use(bodyParser.urlencoded({ extended: true }));

@@ -1,6 +1,6 @@
 const https = require('https');
 
-const { DISCORD_BOT_AVATAR_URL } = require('./globals');
+const { DISCORD_BOT_AVATAR_URL } = require('../globals');
 
 const baseOptions = {
   hostname: 'discord.com',
