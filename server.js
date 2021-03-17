@@ -7,6 +7,7 @@ const { PORT, SUBSCRIPTION_LEASE_SECONDS } = require('./globals');
 const { log, error, isValidRequest } = require('./utils');
 const twitch = require('./api/twitch');
 const discord = require('./api/discord');
+const mongodb = require('./db');
 
 const app = express();
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -89,11 +90,12 @@ app.post('/discord', async (req, res) => {
     case 'auth': {
       log('Auth command');
       const authResult = await twitch.auth({ clientId: process.env.TWITCH_CLIENT_ID });
-      log('Result of auth:', authResult);
-      // log(payload.options);
-      // const [{ value }] = payload.options;
-      // const [clientId, clientSecret] = value.trim().split(' ');
-      // log(clientId, clientSecret);
+      log('Result of slash command auth:', authResult);
+      if (typeof authResult === 'string') {
+        discord.createMessage({ message: 'При переавторизации Twitch произошла ошибка' });
+      } else {
+        discord.createMessage({ message: 'Переавторизация Twitch прошла успешно' });
+      }
       break;
     }
     default: {
@@ -107,7 +109,7 @@ app.get('/auth', async (req, res) => {
   log('Got Twitch Auth', req.query);
   const { clientId } = req.query;
   const authResult = await twitch.auth({ clientId });
-  log('Result of auth:', authResult);
+  log('Result of endpoint auth:', authResult);
   res.header('Content-Type', 'text/plain');
   if (typeof authResult === 'string') {
     res
@@ -120,6 +122,15 @@ app.get('/auth', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  log(`App listening...${PORT}`);
+// // FIXME: remove it
+// mongodb.init(async () => {
+//   // Settings.setTwitchReauthId('sdfd');
+//   // Settings.subscribe('qwe', 'id1231232');
+//   // Settings.unsubscribe('qwe');
+// });
+
+mongodb.init(() => {
+  app.listen(PORT, () => {
+    log(`[Express] App listening... ${PORT}`);
+  });
 });

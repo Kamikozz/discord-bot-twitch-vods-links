@@ -10,18 +10,6 @@ const baseOptions = {
   },
 };
 
-const sendToDiscord = (json) => {
-  const options = {
-    ...baseOptions,
-    path: process.env.DISCORD_WEBHOOK_PATH,
-  };
-  const req = https.request(options);
-  req.end(JSON.stringify({
-    content: JSON.stringify(json),
-    avatar_url: DISCORD_BOT_AVATAR_URL,
-  }));
-};
-
 const sendToDiscordFormatted = ({ title, imageUrl, vodUrl }) => {
   const options = {
     ...baseOptions,
@@ -55,7 +43,6 @@ const createMessage = ({ message, allowedUsersMentionsIds = [] }) => {
   }));
 };
 
-// TODO: доделать алгоритм
 const getMessages = ({ channelId = process.env.DISCORD_BOT_CHANNEL_ID }) => {
   const options = {
     ...baseOptions,
@@ -84,7 +71,6 @@ const getMessages = ({ channelId = process.env.DISCORD_BOT_CHANNEL_ID }) => {
 };
 
 module.exports = {
-  sendToDiscord,
   sendToDiscordFormatted,
   createMessage,
   getMessages,

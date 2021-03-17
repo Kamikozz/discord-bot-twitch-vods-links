@@ -53,10 +53,10 @@ const schedule = (when, url, body = '') => {
 };
 
 const scheduleReauth = () => {
-  const shift = 2 * 60 * 1000; // 2 minutes later
-  const when = new Date(Date.now() + shift);
+  const shiftByTwoMinutes = 10 * 60 * 1000;
+  const when = new Date(Date.now() + shiftByTwoMinutes);
   const url = `${process.env.HOST_URL}/auth?clientId=${process.env.TWITCH_CLIENT_ID}`;
-  return scheduler.schedule(when, url);
+  return schedule(when, url);
 };
 
 module.exports = {

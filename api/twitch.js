@@ -5,6 +5,7 @@ const { log, error } = require('../utils');
 const discord = require('./discord');
 const scheduler = require('./scheduler');
 const heroku = require('./heroku');
+const Settings = require('../models/settings.model');
 
 const baseOptions = {
   hostname: 'api.twitch.tv',
@@ -15,34 +16,34 @@ const baseOptions = {
 };
 
 const token = () => {
-  // const options = {
-  //   hostname: 'id.twitch.tv',
-  //   path: `/oauth2/token?client_id=${process.env.TWITCH_CLIENT_ID}&client_secret=${process.env.TWITCH_CLIENT_SECRET}&grant_type=client_credentials`,
-  //   method: 'POST',
-  // };
-  // return new Promise((resolve, reject) => {
-  //   const req = https.request(options, (res) => {
-  //     let responseData = '';
-  //     res.on('data', (chunk) => {
-  //       responseData += chunk;
-  //     });
-  //     res.on('end', () => {
-  //       const parsedJson = JSON.parse(responseData);
-  //       resolve(parsedJson);
-  //     });
-  //     res.on('error', () => {
-  //       reject();
-  //     });
-  //   });
-  //   req.end();
-  // });
-  return new Promise((res, rej) => {
-    res({
-      access_token: 'jxokxke99iz3',
-      expires_in: 5559211,
-      token_type: "bearer",
+  const options = {
+    hostname: 'id.twitch.tv',
+    path: `/oauth2/token?client_id=${process.env.TWITCH_CLIENT_ID}&client_secret=${process.env.TWITCH_CLIENT_SECRET}&grant_type=client_credentials`,
+    method: 'POST',
+  };
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let responseData = '';
+      res.on('data', (chunk) => {
+        responseData += chunk;
+      });
+      res.on('end', () => {
+        const parsedJson = JSON.parse(responseData);
+        resolve(parsedJson);
+      });
+      res.on('error', () => {
+        reject();
+      });
     });
+    req.end();
   });
+  // return new Promise((res, rej) => {
+  //   res({
+  //     access_token: 'jxokxke99iz3',
+  //     expires_in: 5559211,
+  //     token_type: "bearer",
+  //   });
+  // });
 };
 
 const auth = async ({
@@ -50,8 +51,8 @@ const auth = async ({
 }) => {
   const isEqual = clientId === process.env.TWITCH_CLIENT_ID;
   if (!isEqual) return 'ClientId doesn\'t match';
-  const authenticationResult = await token();
 
+  const authenticationResult = await token();
   const { access_token } = authenticationResult;
   if (!access_token) return 'No \'access_token\' received';
 
@@ -70,12 +71,8 @@ const auth = async ({
       //   now: '2021-03-15 00:40:38',
       //   user: '6sqdFXMtZCvYo1MtatrCL6'
       // }
-
-  // let mongoResponse = await mongo.get('settings');
-  // mongoResponse.twitchTokenScheduledRenewalId = schedulerResponse.id;
-  // mongoResponse = await mongo.set('settings', mongoResponse);
-  // if (!mongoResponse error) -> return 'Mongodb error';
-  return [authenticationResult, schedulerResponse]; // return undefined;
+  await Settings.setTwitchReauthId(id);
+  return;
 };
 
 const subscribe = ({
