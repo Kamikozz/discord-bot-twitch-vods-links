@@ -71,6 +71,59 @@ const auth = async ({
   return;
 };
 
+const getSubscriptions = () => {
+  const [baseOptions, headers] = getBaseOptions();
+  const options = {
+    ...baseOptions,
+    headers,
+    path: '/helix/webhooks/subscriptions',
+  };
+  return new Promise((resolve, reject) => {
+    https.get(options, (res) => {
+      let responseData = '';
+      res.on('data', (chunk) => {
+        responseData += chunk;
+      });
+      res.on('end', () => {
+        const parsedJson = JSON.parse(responseData);
+        resolve(parsedJson);
+      });
+      res.on('error', () => {
+        reject();
+      });
+    });
+  });
+};
+
+/**
+ * Get users information (limit to 100 users).
+ * @param {Array} userIds
+ */
+const getUsersInformation = (userIds) => {
+  const idsQueryString = userIds.map(id => `id=${id}`).join('&');
+  const [baseOptions, headers] = getBaseOptions();
+  const options = {
+    ...baseOptions,
+    headers,
+    path: `/helix/users?${idsQueryString}`,
+  };
+  return new Promise((resolve, reject) => {
+    https.get(options, (res) => {
+      let responseData = '';
+      res.on('data', (chunk) => {
+        responseData += chunk;
+      });
+      res.on('end', () => {
+        const parsedJson = JSON.parse(responseData);
+        resolve(parsedJson.data);
+      });
+      res.on('error', () => {
+        reject();
+      });
+    });
+  });
+};
+
 const subscribe = ({
   userId = TWITCH_SUBSCRIPTION_USER_ID,
   leaseSeconds = 0,
@@ -86,7 +139,7 @@ const subscribe = ({
       ...headers,
       'Content-Type': 'application/json',
     },
-    path: `/helix/webhooks/hub`,
+    path: '/helix/webhooks/hub',
     method: 'POST',
   };
   const req = https.request(options, (res) => {
@@ -132,6 +185,8 @@ const getUserVideos = (userId = TWITCH_SUBSCRIPTION_USER_ID) => {
 module.exports = {
   token,
   auth,
-  getUserVideos,
+  getSubscriptions,
+  getUsersInformation,
   subscribe,
+  getUserVideos,
 };

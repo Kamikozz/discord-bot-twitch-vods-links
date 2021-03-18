@@ -73,6 +73,24 @@ app.post('/discord', async (req, res) => {
   const payload = req.body.data;
   const command = payload.name;
   switch (command) {
+    case 'subscriptions': {
+      log('/Subscriptions');
+      const subscriptionsResult = await twitch.getSubscriptions();
+      let { data: subscriptions } = subscriptionsResult;
+      const userIds = subscriptions.map(({ topic }) => {
+        const [_, userId] = topic.split('user_id=');
+        return userId;
+      });
+      const usersInformation = await twitch.getUsersInformation(userIds);
+      const result = subscriptions
+        .map(({ expires_at }, index) => {
+          const { display_name } = usersInformation[index];
+          return `- ${display_name} | ${new Date(expires_at).toLocaleString('ru-RU')}`;
+        })
+        .join('\n');
+      discord.createMessage({ message: `Текущие подписки:\n${result}` });
+      break;
+    }
     case 'subscribe': {
       log('Subscribe');
       const userId = req.body.member.user.id;
