@@ -8,6 +8,7 @@ const { log, error, isValidRequest } = require('./utils');
 const twitch = require('./api/twitch');
 const discord = require('./api/discord');
 const mongodb = require('./db');
+const Settings = require('./models/settings.model');
 
 const app = express();
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -129,7 +130,8 @@ app.get('/auth', async (req, res) => {
 //   // Settings.unsubscribe('qwe');
 // });
 
-mongodb.init(() => {
+mongodb.init(async () => {
+  await Settings.getSettings();
   app.listen(PORT, () => {
     log(`[Express] App listening... ${PORT}`);
   });

@@ -4,15 +4,15 @@ const { TWITCH_SUBSCRIPTION_USER_ID } = require('../globals');
 const { log, error } = require('../utils');
 const discord = require('./discord');
 const scheduler = require('./scheduler');
-const heroku = require('./heroku');
 const Settings = require('../models/settings.model');
 
-const baseOptions = {
-  hostname: 'api.twitch.tv',
-  headers: {
+const getBaseOptions = () => {
+  return [{
+    hostname: 'api.twitch.tv',
+  }, {
     'Authorization': `Bearer ${process.env.TWITCH_TOKEN}`,
     'Client-Id': process.env.TWITCH_CLIENT_ID,
-  },
+  }];
 };
 
 const token = () => {
@@ -56,11 +56,7 @@ const auth = async ({
   const { access_token } = authenticationResult;
   if (!access_token) return 'No \'access_token\' received';
 
-  let configVariables = await heroku.getConfigVars();
-  if (!configVariables) return 'Heroku error: getConfigVars';
-  configVariables.TWITCH_TOKEN = access_token;
-  configVariables = await heroku.setConfigVars(configVariables);
-  if (!configVariables) return 'Heroku error: setConfigVars';
+  await Settings.setTwitchToken(access_token);
 
   const schedulerResponse = await scheduler.scheduleReauth() || {};
   const { id, message } = schedulerResponse;
@@ -83,10 +79,11 @@ const subscribe = ({
     discord.createMessage({ message: 'При обновлении подписки что-то пошло не так' });
   },
 }) => {
+  const [baseOptions, headers] = getBaseOptions();
   const options = {
     ...baseOptions,
     headers: {
-      ...baseOptions.headers,
+      ...headers,
       'Content-Type': 'application/json',
     },
     path: `/helix/webhooks/hub`,
@@ -109,10 +106,11 @@ const subscribe = ({
 };
 
 const getUserVideos = (userId = TWITCH_SUBSCRIPTION_USER_ID) => {
+  const [baseOptions, headers] = getBaseOptions();
   const options = {
     ...baseOptions,
+    headers,
     path: `/helix/videos?user_id=${userId}`,
-    method: 'GET',
   };
   return new Promise((resolve, reject) => {
     https.get(options, (res) => {

@@ -6,9 +6,32 @@ const errorHandler = (err, result) => {
 };
 
 const userSchema = new Schema({
+  twitchToken: String,
   twitchReauthId: String,
   twitchSubscriptions: Object,
 }, { versionKey: false });
+
+/**
+ * Gets settings from MongoDB & sets TWITCH_TOKEN variable to the environment.
+ */
+userSchema.statics.getSettings = function () {
+  return this.findOne({}, (err, result) => {
+    errorHandler(err, result);
+    process.env.TWITCH_TOKEN = (result || {}).twitchToken;
+  });
+};
+
+/**
+ * @param {String} twitchToken
+ */
+userSchema.statics.setTwitchToken = function (twitchToken) {
+  return this.findOneAndUpdate({}, {
+    twitchToken,
+  }, { upsert: true }, (err, result) => {
+    errorHandler(err, result);
+    process.env.TWITCH_TOKEN = twitchToken;
+  });
+};
 
 /**
  * @param {String} id twitchReauthId

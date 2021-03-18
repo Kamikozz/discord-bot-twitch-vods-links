@@ -1,5 +1,7 @@
 const https = require('https');
 
+const { TWITCH_TOKEN_LEASE_SECONDS } = require('../globals');
+
 const baseOptions = {
   hostname: 'api.schedulerapi.com',
   headers: {
@@ -53,8 +55,7 @@ const schedule = (when, url, body = '') => {
 };
 
 const scheduleReauth = () => {
-  const shiftByTwoMinutes = 10 * 60 * 1000;
-  const when = new Date(Date.now() + shiftByTwoMinutes);
+  const when = new Date(Date.now() + TWITCH_TOKEN_LEASE_SECONDS * 1000);
   const url = `${process.env.HOST_URL}/auth?clientId=${process.env.TWITCH_CLIENT_ID}`;
   return schedule(when, url);
 };
