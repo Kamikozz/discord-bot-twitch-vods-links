@@ -3,7 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 
-const { PORT, SUBSCRIPTION_LEASE_SECONDS } = require('./globals');
+const { PORT } = require('./globals');
 const { log, error, isValidRequest } = require('./utils');
 const twitch = require('./api/twitch');
 const discord = require('./api/discord');
@@ -27,14 +27,16 @@ app.get('/twitch', (req, res) => {
 });
 
 app.post('/twitch', async (req, res) => {
-  log(req.body);
+  const { userId } = req.query;
+  log(req.body, userId);
   res.status(200).send('OK');
+  if (!userId) return;
   if (req.body.data.length) {
     log('Stream Change Events');
   } else {
     log('Stream Offline Event');
     const [userVideos, messages] = await Promise.all([
-      twitch.getUserVideos(),
+      twitch.getUserVideos(userId),
       discord.getMessages({ channelId: process.env.DISCORD_BOT_CHANNEL_ID }),
     ]);
     const [lastVideo] = userVideos;
@@ -74,14 +76,14 @@ app.post('/discord', async (req, res) => {
   const command = payload.name;
   switch (command) {
     case 'subscriptions': {
-      log('/Subscriptions');
+      log('Subscriptions command');
       const subscriptionsResult = await twitch.getSubscriptions();
       let { data: subscriptions } = subscriptionsResult;
       const userIds = subscriptions.map(({ topic }) => {
         const [_, userId] = topic.split('user_id=');
         return userId;
       });
-      const usersInformation = await twitch.getUsersInformation(userIds);
+      const usersInformation = await twitch.getUsersInformationByIds(userIds);
       const result = subscriptions
         .map(({ expires_at }, index) => {
           const { display_name } = usersInformation[index];
@@ -92,18 +94,27 @@ app.post('/discord', async (req, res) => {
       break;
     }
     case 'subscribe': {
-      log('Subscribe');
-      const userId = req.body.member.user.id;
-      twitch.subscribe({
-        leaseSeconds: SUBSCRIPTION_LEASE_SECONDS,
-        callback: () => {
-          const newDateTime = new Date(Date.now() + SUBSCRIPTION_LEASE_SECONDS * 1000).toLocaleString('ru-RU');
-          discord.createMessage({
-            message: `<@${userId}> подписка обновлена и закончится ${newDateTime}`,
-            allowedUsersMentionsIds: [userId],
-          });
-        },
+      const { options } = payload;
+      const [{ value: username }] = options;
+      log('Subscribe command', `got param value: ${username}`);
+      if (!username) return;
+
+      const resubscribeResult = await twitch.resubscribe({
+        clientId: process.env.TWITCH_CLIENT_ID,
+        username,
       });
+      log('Result of slash command resubscribe:', resubscribeResult);
+      if (typeof resubscribeResult === 'string') {
+        discord.createMessage({
+          message: `При обновлении подписки на ${username} что-то пошло не так`,
+        });
+      } else {
+        const discordUserId = req.body.member.user.id;
+        discord.createMessage({
+          message: `<@${discordUserId}> подписался на ${username}`,
+          allowedUsersMentionsIds: [discordUserId],
+        });
+      }
       break;
     }
     case 'auth': {
@@ -125,7 +136,7 @@ app.post('/discord', async (req, res) => {
 });
 
 app.get('/auth', async (req, res) => {
-  log('Got Twitch Auth', req.query);
+  log('Got Twitch reauth', req.query);
   const { clientId } = req.query;
   const authResult = await twitch.auth({ clientId });
   log('Result of endpoint auth:', authResult);
@@ -141,15 +152,28 @@ app.get('/auth', async (req, res) => {
   }
 });
 
-// // FIXME: remove it
-// mongodb.init(async () => {
-//   // Settings.setTwitchReauthId('sdfd');
-//   // Settings.subscribe('qwe', 'id1231232');
-//   // Settings.unsubscribe('qwe');
-// });
+app.post('/resubscribe', async (req, res) => {
+  log('Got Twitch user resubscribe', req.query);
+  const { clientId, userId } = req.query;
+
+  const resubscribeResult = await twitch.resubscribe({ clientId, userId });
+  log('Result of endpoint resubscribe:', resubscribeResult);
+  res.header('Content-Type', 'text/plain');
+  if (typeof resubscribeResult === 'string') {
+    res
+      .status(401)
+      .end(resubscribeResult);
+  } else {
+    res
+      .status(200)
+      .end('OK');
+  }
+});
 
 mongodb.init(async () => {
-  await Settings.getSettings();
+  const settings = await Settings.getSettings() || {};
+  process.env.TWITCH_TOKEN = settings.twitchToken;
+
   app.listen(PORT, () => {
     log(`[Express] App listening... ${PORT}`);
   });

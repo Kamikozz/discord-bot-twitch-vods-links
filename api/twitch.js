@@ -1,10 +1,11 @@
 const https = require('https');
 
-const { TWITCH_SUBSCRIPTION_USER_ID } = require('../globals');
+const { SUBSCRIPTION_LEASE_SECONDS } = require('../globals');
 const { log, error } = require('../utils');
-const discord = require('./discord');
 const scheduler = require('./scheduler');
 const Settings = require('../models/settings.model');
+
+const isValidTwitchClientId = (clientId) => clientId === process.env.TWITCH_CLIENT_ID;
 
 const getBaseOptions = () => {
   return [{
@@ -16,9 +17,15 @@ const getBaseOptions = () => {
 };
 
 const token = () => {
+  const { TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET } = process.env;
+  const queryParams = [
+    `client_id=${TWITCH_CLIENT_ID}`,
+    `client_secret=${TWITCH_CLIENT_SECRET}`,
+    'grant_type=client_credentials',
+  ].join('&');
   const options = {
     hostname: 'id.twitch.tv',
-    path: `/oauth2/token?client_id=${process.env.TWITCH_CLIENT_ID}&client_secret=${process.env.TWITCH_CLIENT_SECRET}&grant_type=client_credentials`,
+    path: `/oauth2/token?${queryParams}`,
     method: 'POST',
   };
   return new Promise((resolve, reject) => {
@@ -37,20 +44,12 @@ const token = () => {
     });
     req.end();
   });
-  // return new Promise((res, rej) => {
-  //   res({
-  //     access_token: 'jxokxke99iz3',
-  //     expires_in: 5559211,
-  //     token_type: "bearer",
-  //   });
-  // });
 };
 
 const auth = async ({
   clientId,
 }) => {
-  const isEqual = clientId === process.env.TWITCH_CLIENT_ID;
-  if (!isEqual) return 'ClientId doesn\'t match';
+  if (!isValidTwitchClientId(clientId)) return 'ClientId doesn\'t match';
 
   const authenticationResult = await token();
   const { access_token } = authenticationResult;
@@ -61,13 +60,44 @@ const auth = async ({
   const schedulerResponse = await scheduler.scheduleReauth() || {};
   const { id, message } = schedulerResponse;
   if (!id) return `Scheduler error: ${message}`;
-      // {
-      //   id: '9v1xU6Z1hSB2yMRTLXBNHg',
-      //   when: '2021-03-15 00:42:37',
-      //   now: '2021-03-15 00:40:38',
-      //   user: '6sqdFXMtZCvYo1MtatrCL6'
-      // }
+
+  const { twitchReauthId } = await Settings.getSettings() || {};
+  if (twitchReauthId) scheduler.cancelSchedule(twitchReauthId);
   await Settings.setTwitchReauthId(id);
+  return;
+};
+
+const resubscribe = async ({
+  clientId,
+  userId,
+  username,
+}) => {
+  if (!isValidTwitchClientId(clientId)) return 'ClientId doesn\'t match';
+
+  let twitchUserId;
+  if (username) {
+    const [userInformation] = await getUsersInformationByNames([username]);
+    const { id } = userInformation;
+    twitchUserId = id;
+  } else {
+    twitchUserId = userId;
+  }
+
+  try {
+    await subscribe(twitchUserId, SUBSCRIPTION_LEASE_SECONDS);
+  } catch (err) {
+    return `Twitch user subscribe error: ${err}`;
+  }
+
+  const schedulerResponse = await scheduler.scheduleResubscribe(twitchUserId) || {};
+  const { id: newRenewalSubId, message } = schedulerResponse;
+  if (!newRenewalSubId) return `Scheduler error: ${message}`;
+
+  const { twitchSubscriptions = {} } = await Settings.getSettings() || {};
+  const twitchUsername = username.toLowerCase();
+  const renewalSubId = twitchSubscriptions[twitchUsername];
+  if (renewalSubId) scheduler.cancelSchedule(renewalSubId);
+  await Settings.subscribe(twitchUsername, newRenewalSubId);
   return;
 };
 
@@ -96,16 +126,36 @@ const getSubscriptions = () => {
 };
 
 /**
- * Get users information (limit to 100 users).
+ * Get users information (limit to 100 users) by user_id.
  * @param {Array} userIds
  */
-const getUsersInformation = (userIds) => {
-  const idsQueryString = userIds.map(id => `id=${id}`).join('&');
+const getUsersInformationByIds = (userIds) => {
+  return getUsersInformation(userIds, 'id');
+};
+
+/**
+ * Get users information (limit to 100 users) by username.
+ * Ex. 'display_name', 'login', 'id'
+ * @param {Array} usernames
+ */
+const getUsersInformationByNames = (usernames) => {
+  return getUsersInformation(usernames, 'login');
+};
+
+/**
+ * Get users information (limit to 100 users).
+ * @param {Array | String} users if presented as String then it's already queryString
+ * @param {String} idOrLogin separator or param name. Can be 'id' or 'login'
+*/
+const getUsersInformation = (users, idOrLogin) => {
+  const queryString = idOrLogin
+    ? users.map(user => `${idOrLogin}=${user}`).join('&')
+    : users;
   const [baseOptions, headers] = getBaseOptions();
   const options = {
     ...baseOptions,
     headers,
-    path: `/helix/users?${idsQueryString}`,
+    path: `/helix/users?${queryString}`,
   };
   return new Promise((resolve, reject) => {
     https.get(options, (res) => {
@@ -124,14 +174,7 @@ const getUsersInformation = (userIds) => {
   });
 };
 
-const subscribe = ({
-  userId = TWITCH_SUBSCRIPTION_USER_ID,
-  leaseSeconds = 0,
-  callback = () => { },
-  error = () => {
-    discord.createMessage({ message: 'При обновлении подписки что-то пошло не так' });
-  },
-}) => {
+const subscribe = (userId, leaseSeconds = 0) => {
   const [baseOptions, headers] = getBaseOptions();
   const options = {
     ...baseOptions,
@@ -142,23 +185,25 @@ const subscribe = ({
     path: '/helix/webhooks/hub',
     method: 'POST',
   };
-  const req = https.request(options, (res) => {
-    const isOk = res.statusCode === 202;
-    if (isOk) {
-      callback();
-    } else {
-      error();
-    }
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      const isOk = res.statusCode === 202;
+      if (isOk) {
+        resolve();
+      } else {
+        reject();
+      }
+    });
+    req.end(JSON.stringify({
+      'hub.callback': `${process.env.HOST_URL}/twitch?userId=${userId}`,
+      'hub.mode': 'subscribe',
+      'hub.topic': `https://api.twitch.tv/helix/streams?user_id=${userId}`,
+      'hub.lease_seconds': leaseSeconds,
+    }));
   });
-  req.end(JSON.stringify({
-    'hub.callback': `${process.env.HOST_URL}/twitch`,
-    'hub.mode': 'subscribe',
-    'hub.topic': `https://api.twitch.tv/helix/streams?user_id=${userId}`,
-    'hub.lease_seconds': leaseSeconds,
-  }));
 };
 
-const getUserVideos = (userId = TWITCH_SUBSCRIPTION_USER_ID) => {
+const getUserVideos = (userId) => {
   const [baseOptions, headers] = getBaseOptions();
   const options = {
     ...baseOptions,
@@ -185,7 +230,10 @@ const getUserVideos = (userId = TWITCH_SUBSCRIPTION_USER_ID) => {
 module.exports = {
   token,
   auth,
+  resubscribe,
   getSubscriptions,
+  getUsersInformationByIds,
+  getUsersInformationByNames,
   getUsersInformation,
   subscribe,
   getUserVideos,

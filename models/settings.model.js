@@ -12,12 +12,11 @@ const userSchema = new Schema({
 }, { versionKey: false });
 
 /**
- * Gets settings from MongoDB & sets TWITCH_TOKEN variable to the environment.
+ * Gets settings from MongoDB.
  */
 userSchema.statics.getSettings = function () {
   return this.findOne({}, (err, result) => {
     errorHandler(err, result);
-    process.env.TWITCH_TOKEN = (result || {}).twitchToken;
   });
 };
 
