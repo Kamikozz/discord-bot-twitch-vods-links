@@ -4,7 +4,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 
 const { PORT } = require('./globals');
-const { log, error, isValidRequest } = require('./utils');
+const { log, error, isValidRequest, getRandomAwaitPhrase } = require('./utils');
 const twitch = require('./api/twitch');
 const discord = require('./api/discord');
 const mongodb = require('./db');
@@ -70,8 +70,13 @@ app.post('/discord', async (req, res) => {
     return res.status(200).end(JSON.stringify({ type: 1 })); // https://discord.com/developers/docs/interactions/slash-commands#receiving-an-interaction
   }
 
-  res.status(200).end();
+  res.status(200).end(JSON.stringify({
+    type: 5,
+    data: { content: getRandomAwaitPhrase() },
+  })); // https://discord.com/developers/docs/interactions/slash-commands#interaction-response-interactionresponsetype
 
+  const { application_id, token } = req.body;
+  const editDiscordBotReplyMessage = (data) => discord.editFollowupMessage(application_id, token, data);
   const payload = req.body.data;
   const command = payload.name;
   switch (command) {
@@ -92,7 +97,7 @@ app.post('/discord', async (req, res) => {
           return `- ${display_name} | ${new Date(expiresAt).toLocaleString('ru-RU')}`;
         })
         .join('\n');
-      discord.createMessage({ message: `Текущие подписки:\n${result}` });
+      editDiscordBotReplyMessage({ content: `Текущие подписки:\n${result}` });
       break;
     }
     case 'subscribe': {
@@ -107,14 +112,16 @@ app.post('/discord', async (req, res) => {
       });
       log('Result of slash command resubscribe:', resubscribeResult);
       if (typeof resubscribeResult === 'string') {
-        discord.createMessage({
-          message: `При обновлении подписки на ${searchByName} что-то пошло не так`,
+        editDiscordBotReplyMessage({
+          content: `При обновлении подписки на ${searchByName} что-то пошло не так`,
         });
       } else {
         const discordUserId = req.body.member.user.id;
-        discord.createMessage({
-          message: `<@${discordUserId}> подписался на ${searchByName}`,
-          allowedUsersMentionsIds: [discordUserId],
+        editDiscordBotReplyMessage({
+          content: `<@${discordUserId}> подписался на ${searchByName}`,
+          allowed_mentions: {
+            users: [discordUserId],
+          },
         });
       }
       break;
@@ -123,11 +130,11 @@ app.post('/discord', async (req, res) => {
       log('Auth command');
       const authResult = await twitch.auth({ clientId: process.env.TWITCH_CLIENT_ID });
       log('Result of slash command auth:', authResult);
-      if (typeof authResult === 'string') {
-        discord.createMessage({ message: 'При переавторизации Twitch произошла ошибка' });
-      } else {
-        discord.createMessage({ message: 'Переавторизация Twitch прошла успешно' });
-      }
+      editDiscordBotReplyMessage({
+        content: typeof authResult === 'string'
+          ? 'При переавторизации Twitch произошла ошибка'
+          : 'Переавторизация Twitch прошла успешно',
+      });
       break;
     }
     default: {

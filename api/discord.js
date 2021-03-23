@@ -28,6 +28,16 @@ const sendToDiscordFormatted = ({ title, imageUrl, vodUrl }) => {
   }));
 };
 
+const editFollowupMessage = (applicationId, interactionToken, data) => {
+  const options = {
+    ...baseOptions,
+    path: `/api/webhooks/${applicationId}/${interactionToken}/messages/@original`,
+    method: 'PATCH',
+  };
+  const req = https.request(options);
+  req.end(JSON.stringify(data));
+};
+
 const createMessage = ({ message, allowedUsersMentionsIds = [] }) => {
   const options = {
     ...baseOptions,
@@ -72,6 +82,7 @@ const getMessages = ({ channelId = process.env.DISCORD_BOT_CHANNEL_ID }) => {
 
 module.exports = {
   sendToDiscordFormatted,
+  editFollowupMessage,
   createMessage,
   getMessages,
 };

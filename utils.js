@@ -28,9 +28,23 @@ const error = (...messages) => {
   }
 };
 
+const getRandomAwaitPhrase = () => {
+  const phrases = [
+    'Wait a few seconds...',
+    'Ща, ща, погодь...',
+    'Э-эээ, та пагади ты ара, бл***!',
+    'Подождите, идёт загрузка...',
+    'Я не тормоз - я просто плавно мыслю. Ожидайте...',
+    ':hourglass_flowing_sand: загрузка... :hourglass:',
+  ];
+  const randomIndex = Math.floor(Math.random() * phrases.length);
+  return phrases[randomIndex];
+};
+
 module.exports = {
   isValidRequest,
   isProduction,
   log,
   error,
+  getRandomAwaitPhrase,
 };
