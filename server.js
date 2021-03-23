@@ -77,17 +77,19 @@ app.post('/discord', async (req, res) => {
   switch (command) {
     case 'subscriptions': {
       log('Subscriptions command');
+      const obj = {}; // store { 'userId': '2021-11-123:1321' }
       const subscriptionsResult = await twitch.getSubscriptions();
       let { data: subscriptions } = subscriptionsResult;
-      const userIds = subscriptions.map(({ topic }) => {
+      const userIds = subscriptions.map(({ topic, expires_at }) => {
         const [_, userId] = topic.split('user_id=');
+        obj[userId] = expires_at;
         return userId;
       });
       const usersInformation = await twitch.getUsersInformationByIds(userIds);
-      const result = subscriptions
-        .map(({ expires_at }, index) => {
-          const { display_name } = usersInformation[index];
-          return `- ${display_name} | ${new Date(expires_at).toLocaleString('ru-RU')}`;
+      const result = usersInformation
+        .map(({ id, display_name }) => {
+          const expiresAt = obj[id];
+          return `- ${display_name} | ${new Date(expiresAt).toLocaleString('ru-RU')}`;
         })
         .join('\n');
       discord.createMessage({ message: `Текущие подписки:\n${result}` });
