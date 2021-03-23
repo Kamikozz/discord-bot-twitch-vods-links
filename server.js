@@ -95,23 +95,23 @@ app.post('/discord', async (req, res) => {
     }
     case 'subscribe': {
       const { options } = payload;
-      const [{ value: username }] = options;
-      log('Subscribe command', `got param value: ${username}`);
-      if (!username) return;
+      const [{ value: searchByName }] = options;
+      log('Subscribe command', `got param value: ${searchByName}`);
+      if (!searchByName) return;
 
       const resubscribeResult = await twitch.resubscribe({
         clientId: process.env.TWITCH_CLIENT_ID,
-        username,
+        searchByName,
       });
       log('Result of slash command resubscribe:', resubscribeResult);
       if (typeof resubscribeResult === 'string') {
         discord.createMessage({
-          message: `При обновлении подписки на ${username} что-то пошло не так`,
+          message: `При обновлении подписки на ${searchByName} что-то пошло не так`,
         });
       } else {
         const discordUserId = req.body.member.user.id;
         discord.createMessage({
-          message: `<@${discordUserId}> подписался на ${username}`,
+          message: `<@${discordUserId}> подписался на ${searchByName}`,
           allowedUsersMentionsIds: [discordUserId],
         });
       }
@@ -152,11 +152,11 @@ app.get('/auth', async (req, res) => {
   }
 });
 
-app.post('/resubscribe', async (req, res) => {
+app.get('/resubscribe', async (req, res) => {
   log('Got Twitch user resubscribe', req.query);
-  const { clientId, userId } = req.query;
+  const { clientId, userId, login } = req.query;
 
-  const resubscribeResult = await twitch.resubscribe({ clientId, userId });
+  const resubscribeResult = await twitch.resubscribe({ clientId, userId, login });
   log('Result of endpoint resubscribe:', resubscribeResult);
   res.header('Content-Type', 'text/plain');
   if (typeof resubscribeResult === 'string') {

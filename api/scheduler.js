@@ -1,6 +1,6 @@
 const https = require('https');
 
-const { TWITCH_TOKEN_LEASE_SECONDS } = require('../globals');
+const { TWITCH_TOKEN_LEASE_SECONDS, SUBSCRIPTION_LEASE_SECONDS } = require('../globals');
 
 const baseOptions = {
   hostname: 'api.schedulerapi.com',
@@ -63,12 +63,11 @@ const scheduleReauth = () => {
   return schedule(when, url);
 };
 
-const scheduleResubscribe = (userId, body = {}) => {
+const scheduleResubscribe = (userId, login, body = {}) => {
   const { HOST_URL, TWITCH_CLIENT_ID } = process.env;
-  // const fiveMinutesBeforeEndSubscriptionLease = SUBSCRIPTION_LEASE_SECONDS - 5 * 60;
-  const fiveMinutesBeforeEndSubscriptionLease = 5 * 60;
+  const fiveMinutesBeforeEndSubscriptionLease = SUBSCRIPTION_LEASE_SECONDS - 5 * 60;
   const when = new Date(Date.now() + fiveMinutesBeforeEndSubscriptionLease * 1000);
-  const params = [`clientId=${TWITCH_CLIENT_ID}`, `userId=${userId}`].join('&');
+  const params = [`clientId=${TWITCH_CLIENT_ID}`, `userId=${userId}`, `login=${login}`].join('&');
   const url = `${HOST_URL}/resubscribe?${params}`;
   const headers = {};
   return schedule(when, url, body, headers);

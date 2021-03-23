@@ -69,18 +69,22 @@ const auth = async ({
 
 const resubscribe = async ({
   clientId,
+  searchByName,
   userId,
-  username,
+  login,
 }) => {
   if (!isValidTwitchClientId(clientId)) return 'ClientId doesn\'t match';
 
   let twitchUserId;
-  if (username) {
-    const [userInformation] = await getUsersInformationByNames([username]);
-    const { id } = userInformation;
+  let twitchUsername;
+  if (searchByName) {
+    const [userInformation] = await getUsersInformationByNames([searchByName]);
+    const { id, login } = userInformation;
     twitchUserId = id;
+    twitchUsername = login;
   } else {
     twitchUserId = userId;
+    twitchUsername = login;
   }
 
   try {
@@ -89,12 +93,11 @@ const resubscribe = async ({
     return `Twitch user subscribe error: ${err}`;
   }
 
-  const schedulerResponse = await scheduler.scheduleResubscribe(twitchUserId) || {};
+  const schedulerResponse = await scheduler.scheduleResubscribe(twitchUserId, twitchUsername) || {};
   const { id: newRenewalSubId, message } = schedulerResponse;
   if (!newRenewalSubId) return `Scheduler error: ${message}`;
 
   const { twitchSubscriptions = {} } = await Settings.getSettings() || {};
-  const twitchUsername = username.toLowerCase();
   const renewalSubId = twitchSubscriptions[twitchUsername];
   if (renewalSubId) scheduler.cancelSchedule(renewalSubId);
   await Settings.subscribe(twitchUsername, newRenewalSubId);
