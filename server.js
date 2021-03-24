@@ -87,6 +87,9 @@ app.post('/discord', async (req, res) => {
       const obj = {}; // store { 'userId': '2021-11-123:1321' }
       const subscriptionsResult = await twitch.getSubscriptions();
       let { data: subscriptions } = subscriptionsResult;
+      if (!subscriptions.length) {
+        return editDiscordBotReplyMessage({ content: 'Нет активных подписок' });
+      }
       const userIds = subscriptions.map(({ topic, expires_at }) => {
         const [_, userId] = topic.split('user_id=');
         obj[userId] = expires_at;
