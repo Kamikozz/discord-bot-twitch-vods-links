@@ -7,6 +7,7 @@ const { PORT } = require('./globals');
 const { log, error, isValidRequest, getRandomAwaitPhrase } = require('./utils');
 const twitch = require('./api/twitch');
 const discord = require('./api/discord');
+const scheduler = require('./api/scheduler');
 const mongodb = require('./db');
 const Settings = require('./models/settings.model');
 
@@ -77,6 +78,7 @@ app.post('/discord', async (req, res) => {
 
   const { application_id, token } = req.body;
   const editDiscordBotReplyMessage = (data) => discord.editFollowupMessage(application_id, token, data);
+  const discordUserId = req.body.member.user.id;
   const payload = req.body.data;
   const command = payload.name;
   switch (command) {
@@ -116,7 +118,6 @@ app.post('/discord', async (req, res) => {
           content: `При обновлении подписки на ${searchByName} что-то пошло не так`,
         });
       } else {
-        const discordUserId = req.body.member.user.id;
         editDiscordBotReplyMessage({
           content: `<@${discordUserId}> подписался на ${searchByName}`,
           allowed_mentions: {
@@ -124,6 +125,49 @@ app.post('/discord', async (req, res) => {
           },
         });
       }
+      break;
+    }
+    case 'unsubscribe': {
+      const { options } = payload;
+      const [{ value: searchByName }] = options;
+      log('Unsubscribe command', `got param value: ${searchByName}`);
+      if (!searchByName) {
+        return editDiscordBotReplyMessage({
+          content: 'Некорректное использование команды /unsubscribe: параметр пользователя пуст',
+        });
+      }
+
+      const [userInformation] = await twitch.getUsersInformationByNames([searchByName]);
+      if (!userInformation) {
+        return editDiscordBotReplyMessage({
+          content: `Пользователя ${searchByName} не существует`,
+        });
+      }
+      const { id, login } = userInformation;
+
+      const { twitchSubscriptions = {} } = await Settings.getSettings() || {};
+      const scheduledRenewalSubscriptionId = twitchSubscriptions[login];
+      if (!scheduledRenewalSubscriptionId) {
+        return editDiscordBotReplyMessage({
+          content: `Вы не подписаны на ${searchByName}`,
+        });
+      }
+
+      Promise.all([
+        scheduler.cancelSchedule(scheduledRenewalSubscriptionId),
+        twitch.unsubscribe(id),
+      ]).then(async () => {
+        await Settings.unsubscribe(login);
+        editDiscordBotReplyMessage({
+          content: `<@${discordUserId}> отписался от ${searchByName}`,
+          allowedUsersMentionsIds: [discordUserId],
+        });
+      }).catch((err) => {
+        error(err);
+        editDiscordBotReplyMessage({
+          content: `Пользователь ${searchByName} найден, но произошла ошибка отписки от Scheduler или Twitch`,
+        });
+      });
       break;
     }
     case 'auth': {

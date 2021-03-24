@@ -177,7 +177,7 @@ const getUsersInformation = (users, idOrLogin) => {
   });
 };
 
-const subscribe = (userId, leaseSeconds = 0) => {
+const subscribeAndUnsubscribeHandler = (userId, leaseSeconds, isSubscribe) => {
   const [baseOptions, headers] = getBaseOptions();
   const options = {
     ...baseOptions,
@@ -199,11 +199,19 @@ const subscribe = (userId, leaseSeconds = 0) => {
     });
     req.end(JSON.stringify({
       'hub.callback': `${process.env.HOST_URL}/twitch?userId=${userId}`,
-      'hub.mode': 'subscribe',
+      'hub.mode': isSubscribe ? 'subscribe' : 'unsubscribe',
       'hub.topic': `https://api.twitch.tv/helix/streams?user_id=${userId}`,
       'hub.lease_seconds': leaseSeconds,
     }));
   });
+};
+
+const subscribe = (userId, leaseSeconds = 0) => {
+  return subscribeAndUnsubscribeHandler(userId, leaseSeconds, true);
+};
+
+const unsubscribe = (userId, leaseSeconds = 0) => {
+  return subscribeAndUnsubscribeHandler(userId, leaseSeconds, false);
 };
 
 const getUserVideos = (userId) => {
@@ -239,5 +247,6 @@ module.exports = {
   getUsersInformationByNames,
   getUsersInformation,
   subscribe,
+  unsubscribe,
   getUserVideos,
 };
