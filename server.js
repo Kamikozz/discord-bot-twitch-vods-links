@@ -109,7 +109,11 @@ app.post('/discord', async (req, res) => {
       const { options } = payload;
       const [{ value: searchByName }] = options;
       log('Subscribe command', `got param value: ${searchByName}`);
-      if (!searchByName) return;
+      if (!searchByName) {
+        return editDiscordBotReplyMessage({
+          content: 'Некорректное использование команды /subscribe: параметр пользователя пуст',
+        });
+      }
 
       const resubscribeResult = await twitch.resubscribe({
         clientId: process.env.TWITCH_CLIENT_ID,
@@ -118,7 +122,7 @@ app.post('/discord', async (req, res) => {
       log('Result of slash command resubscribe:', resubscribeResult);
       if (typeof resubscribeResult === 'string') {
         editDiscordBotReplyMessage({
-          content: `При обновлении подписки на ${searchByName} что-то пошло не так`,
+          content: resubscribeResult,
         });
       } else {
         editDiscordBotReplyMessage({
@@ -219,6 +223,7 @@ app.get('/resubscribe', async (req, res) => {
     res
       .status(401)
       .end(resubscribeResult);
+    discord.createMessage({ message: resubscribeResult });
   } else {
     res
       .status(200)

@@ -79,6 +79,7 @@ const resubscribe = async ({
   let twitchUsername;
   if (searchByName) {
     const [userInformation] = await getUsersInformationByNames([searchByName]);
+    if (!userInformation) return `User \`${searchByName}\` doesn't exist on Twitch`;
     const { id, login } = userInformation;
     twitchUserId = id;
     twitchUsername = login;
