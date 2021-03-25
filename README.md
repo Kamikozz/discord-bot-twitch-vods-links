@@ -1,4 +1,39 @@
 # Discord Bot for Twitch.tv users' Twitch.tv videos' links generator
+*these links are chunked index-dvr.m3u8 files, that can be opened in Safari on iOS or within Chrome plugin `Native HLS Playback`*
+
+## ⚠ Outdated information ⚠
+
+## Stack
+- Node.js without `node-fetch`
+  - express framework
+- [Mongodb's Atlas Cloud](https://cloud.mongodb.com/) Solution (as universal storage for scheduled events' ids for `SchedulerAPI`)
+  - Mongoose (as ORM MongoDB)
+- [Scheduler API](https://schedulerapi.com/) (as HTTP webhook service for scheduled tasks like resubscribe or reauthorize)
+- [Discord API](https://discord.com/developers) (as UI)
+- [Twitch API](https://dev.twitch.tv/) (as service for twitch user's streams' events, authentication & subscriptions)
+- [Heroku](https://dashboard.heroku.com/) (to deploy and store env variables (or you can use your deployment, but you need to set env vars on your own as listed below))
+
+## Environment variables (and `globals.js`)
+- MODE=dev/production
+- HOST_URL=https://path.to.your.deployment.without.closing.slash
+- TWITCH_CLIENT_ID=<https://dev.twitch.tv/console>
+- TWITCH_CLIENT_SECRET=<https://dev.twitch.tv/console>
+- DISCORD_WEBHOOK_PATH=/api/webhooks/**webhook or application id**/<webhook_token>
+- DISCORD_BOT_TOKEN=<navigate to https://discord.com/developers/applications and choose your application -> Bot>
+- DISCORD_APPLICATION_PUBLIC_KEY=<also retrieves on the https://discord.com/developers/applications page>
+- DISCORD_BOT_AVATAR_URL=https://link.to.your.custom.bot.avatar/photo.jpeg
+- DISCORD_BOT_CHANNEL_ID=<channel_id where bot will write messages by .createMessage>
+- SCHEDULER_API_KEY=<https://app.schedulerapi.com/admin>
+- MONGODB_URI=**uri to make connect with your mongodb**
+
+*process.env & globals.js store all of the needed variables*
+
+## Available commands:
+- **/auth** - to *generate* Twitch `access_token` using `ClientId` & `ClientSecret` and *create scheduled task to reauthorize in `TWITCH_TOKEN_LEASE_SECONDS`* (max available days until token lease ~ 60) https://dev.twitch.tv/docs/authentication#types-of-tokens
+- **/logout** - COMING NOT SO SOON
+- **/subscribe <twitch_username>** - to *create* Twitch subscription on user's streams' events and *create scheduled task to resubscribe in `SUBSCRIPTION_LEASE_SECONDS`* (max available 10 days) https://dev.twitch.tv/docs/api/webhooks-reference#subscribe-tounsubscribe-from-events `hub.lease_seconds`
+- **/unsubscribe <twitch_username>** - to *unsubscribe* from Twitch user's streams' events and *remove scheduled task to resubscribe*
+- **/subscriptions** - to *get* current subscriptions of the user
 
 ## To create `DISCORD_WEBHOOK_URL` env param
 1. Go to your `Discord` channel in which you want to write messages.
