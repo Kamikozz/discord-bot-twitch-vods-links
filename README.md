@@ -2,6 +2,11 @@
 *these links are chunked index-dvr.m3u8 files, that can be opened in Safari on iOS or within Chrome plugin `Native HLS Playback`*
 
 ## ⚠ Outdated information ⚠
+> April's 30, 2021
+
+> Problem: periodically VODS' links are not available due to `Object not found` (don't know what happened internal of Twitch, but sh*t happens);
+
+> Solution: as for now, potentially solution is to re-stream to YouTube via ffmpeg. It will also be the feature of permanently store user's VODS on Google's servers
 
 ## Stack
 - Node.js without `node-fetch`
