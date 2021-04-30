@@ -86,6 +86,7 @@ app.post('/discord', async (req, res) => {
       log('Subscriptions command');
       const obj = {}; // store { 'userId': '2021-11-123:1321' }
       const subscriptionsResult = await twitch.getSubscriptions();
+      log('> subscriptionsResult: ', subscriptionsResult);
       let { data: subscriptions } = subscriptionsResult;
       if (!subscriptions.length) {
         return editDiscordBotReplyMessage({ content: 'Нет активных подписок' });
