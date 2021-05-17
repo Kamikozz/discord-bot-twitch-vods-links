@@ -68,13 +68,10 @@ app.post('/discord', async (req, res) => {
   const isPingRequest = req.body.type === 1; // https://discord.com/developers/docs/interactions/slash-commands#interaction-interactiontype
   if (isPingRequest) {
     log('Ping request');
-    return res.status(200).end(JSON.stringify({ type: 1 })); // https://discord.com/developers/docs/interactions/slash-commands#receiving-an-interaction
+    res.status(200).json({ type: 1 }); // https://discord.com/developers/docs/interactions/slash-commands#receiving-an-interaction
+  } else {
+    res.status(200).json({ type: 5, data: { content: getRandomAwaitPhrase() }}); // https://discord.com/developers/docs/interactions/slash-commands#interaction-response-interactionresponsetype
   }
-
-  res.status(200).end(JSON.stringify({
-    type: 5,
-    data: { content: getRandomAwaitPhrase() },
-  })); // https://discord.com/developers/docs/interactions/slash-commands#interaction-response-interactionresponsetype
 
   const { application_id, token } = req.body;
   const editDiscordBotReplyMessage = (data) => discord.editFollowupMessage(application_id, token, data);
