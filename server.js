@@ -1,14 +1,18 @@
-require('dotenv').config();
-
 const express = require('express');
 const bodyParser = require('body-parser');
 
 const { PORT } = require('./globals');
-const { log, error, isValidRequest, getRandomAwaitPhrase } = require('./utils');
-const twitch = require('./api/twitch');
-const discord = require('./api/discord');
-const scheduler = require('./api/scheduler');
-const mongodb = require('./db');
+const {
+  log,
+  error,
+  isValidRequest,
+  getRandomAwaitPhrase,
+} = require('./utils');
+const {
+  twitch,
+  discord,
+  scheduler,
+} = require('./api');
 const Settings = require('./models/settings.model');
 
 const app = express();
@@ -41,15 +45,15 @@ app.post('/twitch', async (req, res) => {
       discord.getMessages({ channelId: process.env.DISCORD_BOT_CHANNEL_ID }),
     ]);
     const [lastVideo] = userVideos;
-    const { thumbnail_url } = lastVideo;
-    const vodUrl = `https://vod-secure.twitch.tv/${thumbnail_url.split('/')[5]}/chunked/index-dvr.m3u8`;
+    const { thumbnail_url: thumbnailUrl } = lastVideo;
+    const vodUrl = `https://vod-secure.twitch.tv/${thumbnailUrl.split('/')[5]}/chunked/index-dvr.m3u8`;
     const [lastMessage] = messages;
     const isAlreadyPosted = lastMessage.content.includes(vodUrl);
     if (!isAlreadyPosted) {
       const { title } = lastVideo;
       const discordObj = {
         title,
-        imageUrl: thumbnail_url.replace('%{width}', '600').replace('%{height}', '350'),
+        imageUrl: thumbnailUrl.replace('%{width}', '600').replace('%{height}', '350'),
         vodUrl,
       };
       discord.sendToDiscordFormatted(discordObj);
@@ -70,11 +74,16 @@ app.post('/discord', async (req, res) => {
     log('Ping request');
     res.status(200).json({ type: 1 }); // https://discord.com/developers/docs/interactions/slash-commands#receiving-an-interaction
   } else {
-    res.status(200).json({ type: 5, data: { content: getRandomAwaitPhrase() }}); // https://discord.com/developers/docs/interactions/slash-commands#interaction-response-interactionresponsetype
+    res.status(200).json({
+      type: 5,
+      data: { content: getRandomAwaitPhrase() },
+    }); // https://discord.com/developers/docs/interactions/slash-commands#interaction-response-interactionresponsetype
   }
 
-  const { application_id, token } = req.body;
-  const editDiscordBotReplyMessage = (data) => discord.editFollowupMessage(application_id, token, data);
+  const { application_id: applicationId, token } = req.body;
+  const editDiscordBotReplyMessage = (data) => {
+    discord.editFollowupMessage(applicationId, token, data);
+  };
   const discordUserId = req.body.member.user.id;
   const payload = req.body.data;
   const command = payload.name;
@@ -84,20 +93,20 @@ app.post('/discord', async (req, res) => {
       const obj = {}; // store { 'userId': '2021-11-123:1321' }
       const subscriptionsResult = await twitch.getSubscriptions();
       log('> subscriptionsResult: ', subscriptionsResult);
-      let { data: subscriptions } = subscriptionsResult;
+      const { data: subscriptions } = subscriptionsResult;
       if (!subscriptions.length) {
         return editDiscordBotReplyMessage({ content: 'Нет активных подписок' });
       }
-      const userIds = subscriptions.map(({ topic, expires_at }) => {
-        const [_, userId] = topic.split('user_id=');
-        obj[userId] = expires_at;
+      const userIds = subscriptions.map(({ topic, expires_at: expiresAt }) => {
+        const [, userId] = topic.split('user_id=');
+        obj[userId] = expiresAt;
         return userId;
       });
       const usersInformation = await twitch.getUsersInformationByIds(userIds);
       const result = usersInformation
-        .map(({ id, display_name }) => {
+        .map(({ id, display_name: displayName }) => {
           const expiresAt = obj[id];
-          return `- ${display_name} | ${new Date(expiresAt).toLocaleString('ru-RU')}`;
+          return `- ${displayName} | ${new Date(expiresAt).toLocaleString('ru-RU')}`;
         })
         .join('\n');
       editDiscordBotReplyMessage({ content: `Текущие подписки:\n${result}` });
@@ -229,11 +238,10 @@ app.get('/resubscribe', async (req, res) => {
   }
 });
 
-mongodb.init(async () => {
-  const settings = await Settings.getSettings() || {};
-  process.env.TWITCH_TOKEN = settings.twitchToken;
-
-  app.listen(PORT, () => {
-    log(`[Express] App listening... ${PORT}`);
-  });
-});
+module.exports = {
+  init: () => {
+    app.listen(PORT, () => {
+      log(`[Express] App listening... ${PORT}`);
+    });
+  },
+};

@@ -10,7 +10,7 @@ const baseOptions = {
 };
 
 /**
- * 
+ *
  * @param {Date} when
  * @param {String | Object} body
  */
@@ -36,7 +36,7 @@ const schedule = (when, url, body = '', headers = {}) => {
         if (res.statusCode === 200) {
           resolve(parsedJson);
         } else {
-          reject(parsedJson)
+          reject(parsedJson);
         }
       });
       res.on('error', () => {
@@ -103,7 +103,7 @@ const updateSchedule = ({
         if (res.statusCode === 200) {
           resolve(parsedJson);
         } else {
-          reject(parsedJson)
+          reject(parsedJson);
         }
       });
       res.on('error', () => {
