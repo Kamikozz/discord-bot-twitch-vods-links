@@ -1,6 +1,7 @@
 const https = require('https');
 
 const { TWITCH_TOKEN_LEASE_SECONDS, SUBSCRIPTION_LEASE_SECONDS } = require('../globals');
+const { buildQueryString } = require('../utils');
 
 const baseOptions = {
   hostname: 'api.schedulerapi.com',
@@ -59,7 +60,8 @@ const schedule = (when, url, body = '', headers = {}) => {
 const scheduleReauth = () => {
   const { HOST_URL, TWITCH_CLIENT_ID } = process.env;
   const when = new Date(Date.now() + TWITCH_TOKEN_LEASE_SECONDS * 1000);
-  const url = `${HOST_URL}/auth?clientId=${TWITCH_CLIENT_ID}`;
+  const queryParams = buildQueryString({ clientId: TWITCH_CLIENT_ID });
+  const url = `${HOST_URL}/auth?${queryParams}`;
   return schedule(when, url);
 };
 
@@ -67,8 +69,12 @@ const scheduleResubscribe = (userId, login, body = {}) => {
   const { HOST_URL, TWITCH_CLIENT_ID } = process.env;
   const fiveMinutesBeforeEndSubscriptionLease = SUBSCRIPTION_LEASE_SECONDS - 5 * 60;
   const when = new Date(Date.now() + fiveMinutesBeforeEndSubscriptionLease * 1000);
-  const params = [`clientId=${TWITCH_CLIENT_ID}`, `userId=${userId}`, `login=${login}`].join('&');
-  const url = `${HOST_URL}/resubscribe?${params}`;
+  const queryParams = buildQueryString({
+    clientId: TWITCH_CLIENT_ID,
+    userId,
+    login,
+  });
+  const url = `${HOST_URL}/resubscribe?${queryParams}`;
   const headers = {};
   return schedule(when, url, body, headers);
 };

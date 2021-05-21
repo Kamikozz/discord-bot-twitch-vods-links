@@ -1,6 +1,7 @@
 const https = require('https');
 
 const { SUBSCRIPTION_LEASE_SECONDS } = require('../globals');
+const { buildQueryString } = require('../utils');
 const scheduler = require('./scheduler');
 const Settings = require('../models/settings.model');
 
@@ -15,11 +16,11 @@ const getBaseOptions = () => [{
 
 const token = () => {
   const { TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET } = process.env;
-  const queryParams = [
-    `client_id=${TWITCH_CLIENT_ID}`,
-    `client_secret=${TWITCH_CLIENT_SECRET}`,
-    'grant_type=client_credentials',
-  ].join('&');
+  const queryParams = buildQueryString({
+    client_id: TWITCH_CLIENT_ID,
+    client_secret: TWITCH_CLIENT_SECRET,
+    grant_type: 'client_credentials',
+  });
   const options = {
     hostname: 'id.twitch.tv',
     path: `/oauth2/token?${queryParams}`,
@@ -208,10 +209,11 @@ const getSubscriptions = () => {
 
 const getUserVideos = (userId) => {
   const [baseOptions, headers] = getBaseOptions();
+  const queryParams = buildQueryString({ user_id: userId });
   const options = {
     ...baseOptions,
     headers,
-    path: `/helix/videos?user_id=${userId}`,
+    path: `/helix/videos?${queryParams}`,
   };
   return new Promise((resolve, reject) => {
     https.get(options, (res) => {
