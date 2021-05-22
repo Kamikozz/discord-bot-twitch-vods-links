@@ -3,17 +3,12 @@ const bodyParser = require('body-parser');
 
 const { PORT } = require('./globals');
 const {
-  log,
-  error,
-  isValidRequest,
-  getRandomAwaitPhrase,
+  log, error, isValidRequest, getRandomAwaitPhrase,
 } = require('./utils');
-const {
-  twitch,
-  discord,
-  scheduler,
-} = require('./api');
+const { twitch, discord, scheduler } = require('./api');
+const { YoutubeAuthService } = require('./services');
 const Settings = require('./models/settings.model');
+const store = require('./store');
 
 const app = express();
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -88,6 +83,14 @@ app.post('/discord', async (req, res) => {
   const payload = req.body.data;
   const command = payload.name;
   switch (command) {
+    case 'auth_youtube': {
+      log('Auth YouTube command');
+      const youtubeAuthLink = YoutubeAuthService.createAuthLink();
+      editDiscordBotReplyMessage({
+        content: `**Click this link to authorize** ${youtubeAuthLink}`,
+      });
+      break;
+    }
     case 'subscriptions': {
       log('Subscriptions command');
       const obj = {}; // store { 'userId': '2021-11-123:1321' }
@@ -236,6 +239,28 @@ app.get('/resubscribe', async (req, res) => {
       .status(200)
       .end('OK');
   }
+});
+
+app.get('/youtube', async (req, res) => {
+  res.status(200).end(`
+    <html>
+      <head></head>
+      <body>
+        <script>
+          window.onload = function() {
+            window.close();
+          };
+        </script>
+      </body>
+    </html>
+  `);
+  const { code } = req.query;
+  if (!code.length) return;
+  const isYoutubeAuthCompleted = await YoutubeAuthService.exchangeSecretsForAccessToken(code);
+  discord.createMessage({
+    message: `[YouTube] Authorization **${isYoutubeAuthCompleted ? 'success' : 'failed'}**`,
+  });
+  log(store);
 });
 
 module.exports = {

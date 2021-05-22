@@ -1,20 +1,24 @@
 const mongoose = require('mongoose');
+
 const { Schema, model } = mongoose;
 
+const { error } = require('../utils');
+
 const errorHandler = (err, result) => {
-  if (err) error(err);
+  if (err) error(err, result);
 };
 
-const userSchema = new Schema({
+const settingsSchema = new Schema({
   twitchToken: String,
   twitchReauthId: String,
   twitchSubscriptions: Object,
+  youtubeRefreshToken: String,
 }, { versionKey: false });
 
 /**
  * Gets settings from MongoDB.
  */
-userSchema.statics.getSettings = function () {
+settingsSchema.statics.getSettings = function () {
   return this.findOne({}, (err, result) => {
     errorHandler(err, result);
   });
@@ -23,7 +27,7 @@ userSchema.statics.getSettings = function () {
 /**
  * @param {String} twitchToken
  */
-userSchema.statics.setTwitchToken = function (twitchToken) {
+settingsSchema.statics.setTwitchToken = function (twitchToken) {
   return this.findOneAndUpdate({}, {
     twitchToken,
   }, { upsert: true }, (err, result) => {
@@ -35,7 +39,7 @@ userSchema.statics.setTwitchToken = function (twitchToken) {
 /**
  * @param {String} id twitchReauthId
  */
-userSchema.statics.setTwitchReauthId = function (twitchReauthId) {
+settingsSchema.statics.setTwitchReauthId = function (twitchReauthId) {
   return this.findOneAndUpdate({}, {
     twitchReauthId,
   }, { upsert: true }, errorHandler);
@@ -46,7 +50,7 @@ userSchema.statics.setTwitchReauthId = function (twitchReauthId) {
  * @param {String} twitchUsername
  * @param {String} scheduledRenewalId
  */
-userSchema.statics.subscribe = function (twitchUsername, scheduledRenewalId) {
+settingsSchema.statics.subscribe = function (twitchUsername, scheduledRenewalId) {
   return this.findOneAndUpdate({}, {
     $set: {
       [`twitchSubscriptions.${twitchUsername}`]: scheduledRenewalId,
@@ -58,7 +62,7 @@ userSchema.statics.subscribe = function (twitchUsername, scheduledRenewalId) {
  *
  * @param {String} twitchUsername
  */
-userSchema.statics.unsubscribe = function (twitchUsername) {
+settingsSchema.statics.unsubscribe = function (twitchUsername) {
   return this.findOneAndUpdate({}, {
     $unset: {
       [`twitchSubscriptions.${twitchUsername}`]: '',
@@ -66,4 +70,14 @@ userSchema.statics.unsubscribe = function (twitchUsername) {
   }, errorHandler);
 };
 
-module.exports = model('Settings', userSchema);
+/**
+ *
+ * @param {String} refreshToken
+ */
+settingsSchema.statics.setYoutubeRefreshToken = function (refreshToken) {
+  return this.findOneAndUpdate({}, {
+    youtubeRefreshToken: refreshToken,
+  }, { upsert: true }, errorHandler);
+};
+
+module.exports = model('Settings', settingsSchema);
