@@ -245,12 +245,8 @@ app.get('/youtube', async (req, res) => {
   res.status(200).end(`
     <html>
       <head></head>
-      <body>
-        <script>
-          window.onload = function() {
-            window.close();
-          };
-        </script>
+      <body style="display: flex; justify-content: center; align-items: center; background-color: black;">
+        <p style="color: white; font-size: 25px;">You can close this window</p>
       </body>
     </html>
   `);

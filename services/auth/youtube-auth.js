@@ -66,6 +66,38 @@ const getAccessToken = async (customBody, onSuccess = () => {}) => {
   }
 };
 
+const revokeToken = (token) => {
+  const options = {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    hostname: 'oauth2.googleapis.com',
+    path: '/revoke',
+    method: 'POST',
+  };
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let responseData = '';
+      res.on('data', (chunk) => {
+        responseData += chunk;
+      });
+      res.on('end', () => {
+        const parsedJson = JSON.parse(responseData);
+        const isOk = res.statusCode === 200;
+        if (isOk) {
+          resolve(parsedJson);
+        } else {
+          reject(parsedJson);
+        }
+      });
+      res.on('error', () => {
+        reject();
+      });
+    });
+    req.end(JSON.stringify({ token }));
+  });
+};
+
 class YoutubeAuthService {
   static isValidToken() {
     return store.youtube.expiresIn > Date.now();
@@ -73,6 +105,14 @@ class YoutubeAuthService {
 
   static hasRefreshToken() {
     return Boolean(store.youtube.refreshToken);
+  }
+
+  static async revokeRefreshToken() {
+    try {
+      await revokeToken(store.youtube.refreshToken);
+    } catch (e) {
+      error(e);
+    }
   }
 
   static createAuthLink() {
@@ -94,8 +134,15 @@ class YoutubeAuthService {
       redirect_uri: YOUTUBE_REDIRECT_URI,
     }, (json) => {
       console.log('DEBUG-onSuccess', json);
-      store.youtube.refreshToken = json.refresh_token;
-      Settings.setYoutubeRefreshToken(json.refresh_token);
+      // https://stackoverflow.com/a/10220362/8325973
+      const { refresh_token: newRefreshToken } = json;
+      if (newRefreshToken) {
+        this.revokeRefreshToken()
+          .then(() => {
+            store.youtube.refreshToken = newRefreshToken;
+            Settings.setYoutubeRefreshToken(newRefreshToken);
+          });
+      }
     });
   }
 
@@ -105,19 +152,6 @@ class YoutubeAuthService {
       grant_type: 'refresh_token',
     });
   }
-
-  static requestAccessToken() {
-
-  }
-
-  // if (store.youtube.expiresIn < Date.now()) {
-  //   try {
-  //     await this.refreshAccessToken();
-  //   } catch (e) {
-  //     error(e.message);
-  //     createAuthLink();
-  //   }
-  // }
 }
 
 module.exports = YoutubeAuthService;
