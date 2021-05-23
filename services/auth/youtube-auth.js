@@ -3,7 +3,7 @@ const https = require('https');
 const { YOUTUBE_REDIRECT_URI, YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET } = require('../../globals');
 const store = require('../../store');
 const Settings = require('../../models/settings.model');
-const { buildQueryString, error } = require('../../utils');
+const { buildQueryString, error, log } = require('../../utils');
 
 /**
  *
@@ -56,7 +56,7 @@ const getAccessToken = async (customBody, onSuccess = () => {}) => {
   try {
     response = await fetchAccessToken(customBody);
     const { access_token: accessToken, expires_in: expiresIn } = response;
-    console.log(response);
+    log('[Google Accounts] Fetch access token result:', response);
     updateAccessToken(accessToken, expiresIn);
     onSuccess(response);
     return true;
@@ -111,7 +111,7 @@ class YoutubeAuthService {
     try {
       await revokeToken(store.youtube.refreshToken);
     } catch (e) {
-      error(e);
+      error('[Google Accounts] Revoking token error: ', e);
     }
   }
 
@@ -133,7 +133,6 @@ class YoutubeAuthService {
       grant_type: 'authorization_code',
       redirect_uri: YOUTUBE_REDIRECT_URI,
     }, (json) => {
-      console.log('DEBUG-onSuccess', json);
       // https://stackoverflow.com/a/10220362/8325973
       const { refresh_token: newRefreshToken } = json;
       if (newRefreshToken) {

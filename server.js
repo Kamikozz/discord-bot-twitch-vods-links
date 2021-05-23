@@ -242,20 +242,38 @@ app.get('/resubscribe', async (req, res) => {
 });
 
 app.get('/youtube', async (req, res) => {
+  const { code = '' } = req.query;
+  if (!code.length) {
+    res.status(404).end();
+    return;
+  }
+  const isYoutubeAuthCompleted = await YoutubeAuthService.exchangeSecretsForAccessToken(code);
+  const interactionResult = isYoutubeAuthCompleted ? 'success' : 'failed';
+  discord.createMessage({
+    message: `[YouTube] Authorization **${interactionResult}**`,
+  });
   res.status(200).end(`
     <html>
-      <head></head>
-      <body style="display: flex; justify-content: center; align-items: center; background-color: black;">
-        <p style="color: white; font-size: 25px;">You can close this window</p>
+      <head>
+        <style>
+          body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: black;
+          }
+          .success { color: green; }
+          .failed { color: red; }
+        </style>
+      </head>
+      <body>
+        <div style="font-size: 25px;">
+          <p class="${interactionResult}">${interactionResult}</p>
+          <p style="color: white;">You can close this window</p>
+        </div>
       </body>
     </html>
   `);
-  const { code } = req.query;
-  if (!code.length) return;
-  const isYoutubeAuthCompleted = await YoutubeAuthService.exchangeSecretsForAccessToken(code);
-  discord.createMessage({
-    message: `[YouTube] Authorization **${isYoutubeAuthCompleted ? 'success' : 'failed'}**`,
-  });
   log(store);
 });
 

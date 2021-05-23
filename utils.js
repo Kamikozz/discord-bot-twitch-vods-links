@@ -41,12 +41,12 @@ const getRandomAwaitPhrase = () => {
   return phrases[randomIndex];
 };
 
-const buildQueryString = (paramsObj = {}) => {
+function buildQueryString(paramsObj = {}) {
   return Object
     .entries(paramsObj)
     .map(([key, value]) => `${key}=${value}`)
     .join('&');
-};
+}
 
 module.exports = {
   isValidRequest,
