@@ -13,6 +13,7 @@ const settingsSchema = new Schema({
   twitchReauthId: String,
   twitchSubscriptions: Object,
   youtubeRefreshToken: String,
+  youtubeRtmpStreamId: String,
 }, { versionKey: false });
 
 /**
@@ -77,6 +78,16 @@ settingsSchema.statics.unsubscribe = function (twitchUsername) {
 settingsSchema.statics.setYoutubeRefreshToken = function (refreshToken) {
   return this.findOneAndUpdate({}, {
     youtubeRefreshToken: refreshToken,
+  }, { upsert: true }, errorHandler);
+};
+
+/**
+ * Save "config" of the YouTube LiveStream.
+ * @param {String} rtmpStreamId
+ */
+settingsSchema.statics.setYoutubeRtmpStreamId = function (rtmpStreamId) {
+  return this.findOneAndUpdate({}, {
+    youtubeRtmpStreamId: rtmpStreamId,
   }, { upsert: true }, errorHandler);
 };
 

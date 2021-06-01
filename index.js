@@ -7,8 +7,10 @@ const mongodb = require('./db');
 
 mongodb.init(async () => {
   const settings = await Settings.getSettings() || {};
+  // TODO: rewrite this relying on local "store" object
   process.env.TWITCH_TOKEN = settings.twitchToken;
   store.youtube.refreshToken = settings.youtubeRefreshToken;
+  store.youtube.rtmpStreamId = settings.youtubeRtmpStreamId;
 
   server.init();
 });
