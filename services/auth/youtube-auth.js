@@ -151,6 +151,10 @@ class YoutubeAuthService {
       grant_type: 'refresh_token',
     });
   }
+
+  static getAccessToken() {
+    return store.youtube.accessToken;
+  }
 }
 
 module.exports = YoutubeAuthService;
