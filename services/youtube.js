@@ -240,12 +240,19 @@ class YoutubeService {
     return this.authorizedRequest(liveBroadcasts.fetchList);
   }
 
-  static liveBroadcastsInsert() {
-    return this.authorizedRequest(liveBroadcasts.insert);
+  /**
+   * @param paramsObj {{ title, privacyStatus }}
+   */
+  static liveBroadcastsInsert(paramsObj) {
+    return this.authorizedRequest(() => liveBroadcasts.insert(paramsObj));
   }
 
-  static liveBroadcastsBind() {
-    return this.authorizedRequest(liveBroadcasts.bind);
+  /**
+   * @param {string} broadcastId what Broadcast will be assigned to Stream
+   * @param {string} streamId Stream
+   */
+  static liveBroadcastsBind(broadcastId, streamId) {
+    return this.authorizedRequest(() => liveBroadcasts.bind(broadcastId, streamId));
   }
 
   // Live Streams
