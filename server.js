@@ -6,7 +6,7 @@ const {
   log, error, isValidRequest, getRandomAwaitPhrase,
 } = require('./utils');
 const { twitch, discord, scheduler } = require('./api');
-const { YoutubeAuthService } = require('./services');
+const { YoutubeAuthService, YoutubeService } = require('./services');
 const Settings = require('./models/settings.model');
 const store = require('./store');
 
@@ -275,6 +275,39 @@ app.get('/youtube', async (req, res) => {
     </html>
   `);
   log(store);
+});
+
+// start new LiveBroadcast
+app.get('/test_endpoint', async (req, res) => {
+  // discord.createMessage({
+  //   message: '',
+  // });
+  res.status(200).end();
+  // 1. Get valid LiveStreamId
+  let { rtmpStreamId } = store.youtube;
+  if (rtmpStreamId) {
+    const liveStreamsListResult = await YoutubeService.liveStreamsList();
+    const { items } = liveStreamsListResult;
+    const foundRtmpStream = items.find((item) => item.id === rtmpStreamId);
+    rtmpStreamId = foundRtmpStream ? foundRtmpStream.id : null;
+  }
+
+  if (!rtmpStreamId) {
+    const liveStreamsInsertResult = await YoutubeService.liveStreamsInsert();
+    rtmpStreamId = liveStreamsInsertResult.id;
+    Settings.setYoutubeRtmpStreamId(rtmpStreamId); // save to db due to future usability
+    store.youtube.rtmpStreamId = rtmpStreamId; // save to local db
+  }
+
+  // 2. Get new LiveBroadcastId
+  const liveBroadcastsInsertResult = await YoutubeService.liveBroadcastsInsert({
+    title: `Stream ${new Date().toLocaleString()}`,
+    privacyStatus: 'private',
+  });
+  const liveBroadcastId = liveBroadcastsInsertResult.id;
+
+  // 3. Bind LiveBroadcastId with LiveStreamId
+  await YoutubeService.liveBroadcastsBind(liveBroadcastId, rtmpStreamId);
 });
 
 module.exports = {

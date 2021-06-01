@@ -108,13 +108,14 @@ const liveBroadcasts = (() => {
     bind(broadcastId, streamId) {
       const liveBroadcastsBaseOptions = getLiveBroadcastsBaseOptions();
       const queryParams = buildQueryString({
+        access_token: YoutubeAuthService.getAccessToken(),
         part: 'contentDetails,snippet',
         id: broadcastId,
         streamId,
       });
       const options = {
         ...liveBroadcastsBaseOptions,
-        path: `${liveBroadcastsBaseOptions.path}&${queryParams}`,
+        path: `${baseOptions.path}/liveBroadcasts/bind?${queryParams}`,
         method: 'POST',
       };
       return new Promise((resolve, reject) => {
