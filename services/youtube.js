@@ -1,6 +1,7 @@
 const https = require('https');
 
-const { AuthService, YoutubeAuthService } = require('.');
+const AuthService = require('./auth/auth');
+const YoutubeAuthService = require('./auth/youtube-auth');
 const { buildQueryString } = require('../utils');
 
 // https://youtube.googleapis.com/youtube/v3
