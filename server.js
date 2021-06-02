@@ -1,9 +1,10 @@
 const express = require('express');
 const bodyParser = require('body-parser');
+const twitchm3u8 = require('twitch-m3u8');
 
 const { PORT } = require('./globals');
 const {
-  log, error, isValidRequest, getRandomAwaitPhrase,
+  log, error, isValidRequest, getRandomAwaitPhrase, ffmpeg,
 } = require('./utils');
 const { twitch, discord, scheduler } = require('./api');
 const { YoutubeAuthService, YoutubeService } = require('./services');
@@ -277,23 +278,20 @@ app.get('/youtube', async (req, res) => {
   log(store);
 });
 
-// start new LiveBroadcast
-app.get('/test_endpoint', async (req, res) => {
-  // discord.createMessage({
-  //   message: '',
-  // });
-  res.status(200).end();
+const startLiveBroadcastRestream = async (twitchStreamerIdOrLogin) => {
   // 1. Get valid LiveStreamId
   let { rtmpStreamId } = store.youtube;
+  let rtmpStream;
   if (rtmpStreamId) {
     const liveStreamsListResult = await YoutubeService.liveStreamsList();
     const { items } = liveStreamsListResult;
-    const foundRtmpStream = items.find((item) => item.id === rtmpStreamId);
-    rtmpStreamId = foundRtmpStream ? foundRtmpStream.id : null;
+    rtmpStream = items.find((item) => item.id === rtmpStreamId);
+    rtmpStreamId = rtmpStream ? rtmpStream.id : null;
   }
 
   if (!rtmpStreamId) {
     const liveStreamsInsertResult = await YoutubeService.liveStreamsInsert();
+    rtmpStream = liveStreamsInsertResult;
     rtmpStreamId = liveStreamsInsertResult.id;
     Settings.setYoutubeRtmpStreamId(rtmpStreamId); // save to db due to future usability
     store.youtube.rtmpStreamId = rtmpStreamId; // save to local db
@@ -308,6 +306,20 @@ app.get('/test_endpoint', async (req, res) => {
 
   // 3. Bind LiveBroadcastId with LiveStreamId
   await YoutubeService.liveBroadcastsBind(liveBroadcastId, rtmpStreamId);
+
+  // 4. Start re-stream
+  const rtmpUri = `${rtmpStream.cdn.ingestionInfo.ingestionAddress}/${rtmpStream.cdn.ingestionInfo.streamName}`;
+  const [mostQualityStream] = await twitchm3u8.getStream(twitchStreamerIdOrLogin);
+  const m3u8Playlist = mostQualityStream.url;
+  ffmpeg.restream(m3u8Playlist, rtmpUri);
+};
+
+// start new LiveBroadcast
+app.get('/test_endpoint', async (req, res) => {
+  const { id } = req.query;
+  if (!id) return res.status(404).end();
+  res.status(200).end();
+  startLiveBroadcastRestream(id);
 });
 
 module.exports = {

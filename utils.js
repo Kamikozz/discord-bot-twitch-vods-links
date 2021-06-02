@@ -1,3 +1,4 @@
+const { spawn } = require('child_process');
 const nacl = require('tweetnacl');
 
 /**
@@ -48,6 +49,37 @@ function buildQueryString(paramsObj = {}) {
     .join('&');
 }
 
+const ffmpeg = {
+  restream(m3u8Playlist, rtmpUri) {
+    const child = spawn('ffmpeg', [
+      '-fflags',
+      '+igndts',
+      '-hide_banner',
+      '-i',
+      m3u8Playlist,
+      '-c',
+      'copy',
+      '-f',
+      'flv',
+      rtmpUri,
+    ]);
+
+    // use child.stdout.setEncoding('utf8'); if you want text chunks
+    child.stdout.on('data', (chunk) => {
+      // data from standard output is here as buffers
+      log(`[FFMPEG] ${chunk.toString('utf8')}`);
+    });
+
+    child.stderr.on('data', () => {
+      // console.log(chunk.toString('utf8'));
+    });
+
+    child.on('close', (code) => {
+      log(`[FFMPEG] Child process exited with code ${code}`);
+    });
+  },
+};
+
 module.exports = {
   isValidRequest,
   isProduction,
@@ -55,4 +87,5 @@ module.exports = {
   error,
   getRandomAwaitPhrase,
   buildQueryString,
+  ffmpeg,
 };
