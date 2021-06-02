@@ -5,34 +5,38 @@ const YoutubeAuthService = require('./auth/youtube-auth');
 const { buildQueryString } = require('../utils');
 
 // https://youtube.googleapis.com/youtube/v3
-const baseOptions = {
+const getBaseOptions = () => ({
   headers: {
     'Content-Type': 'application/json',
+    Authorization: `Bearer ${YoutubeAuthService.getAccessToken()}`,
   },
   hostname: 'youtube.googleapis.com',
   path: '/youtube/v3',
-};
+});
 
 const liveBroadcasts = (() => {
-  const getLiveBroadcastsBaseOptions = () => ({
-    ...baseOptions,
-    headers: {
-      ...baseOptions.headers,
-    },
-    path: `${baseOptions.path}/liveBroadcasts?access_token=${YoutubeAuthService.getAccessToken()}`,
-  });
+  const getLiveBroadcastsOptions = () => {
+    const baseOptions = getBaseOptions();
+    return {
+      ...baseOptions,
+      headers: {
+        ...baseOptions.headers,
+      },
+      path: `${baseOptions.path}/liveBroadcasts`,
+    };
+  };
 
   return {
     fetchList() {
-      const liveBroadcastsBaseOptions = getLiveBroadcastsBaseOptions();
+      const liveBroadcastsOptions = getLiveBroadcastsOptions();
       const queryParams = buildQueryString({
         part: 'snippet,contentDetails,status',
         broadcastType: 'all',
         mine: 'true',
       });
       const options = {
-        ...liveBroadcastsBaseOptions,
-        path: `${liveBroadcastsBaseOptions.path}&${queryParams}`,
+        ...liveBroadcastsOptions,
+        path: `${liveBroadcastsOptions.path}?${queryParams}`,
         method: 'GET',
       };
       return new Promise((resolve, reject) => {
@@ -59,13 +63,13 @@ const liveBroadcasts = (() => {
     },
 
     insert({ title, privacyStatus } = { title: 'Another translation', privacyStatus: 'private' }) {
-      const liveBroadcastsBaseOptions = getLiveBroadcastsBaseOptions();
+      const liveBroadcastsOptions = getLiveBroadcastsOptions();
       const queryParams = buildQueryString({
         part: 'snippet,contentDetails,status',
       });
       const options = {
-        ...liveBroadcastsBaseOptions,
-        path: `${liveBroadcastsBaseOptions.path}&${queryParams}`,
+        ...liveBroadcastsOptions,
+        path: `${liveBroadcastsOptions.path}?${queryParams}`,
         method: 'POST',
       };
       const fiveMinutesMs = 60 * 5 * 1000;
@@ -106,16 +110,15 @@ const liveBroadcasts = (() => {
     },
 
     bind(broadcastId, streamId) {
-      const liveBroadcastsBaseOptions = getLiveBroadcastsBaseOptions();
+      const liveBroadcastsOptions = getLiveBroadcastsOptions();
       const queryParams = buildQueryString({
-        access_token: YoutubeAuthService.getAccessToken(),
         part: 'contentDetails,snippet',
         id: broadcastId,
         streamId,
       });
       const options = {
-        ...liveBroadcastsBaseOptions,
-        path: `${baseOptions.path}/liveBroadcasts/bind?${queryParams}`,
+        ...liveBroadcastsOptions,
+        path: `${liveBroadcastsOptions.path}/bind?${queryParams}`,
         method: 'POST',
       };
       return new Promise((resolve, reject) => {
@@ -144,24 +147,27 @@ const liveBroadcasts = (() => {
 })();
 
 const liveStreams = (() => {
-  const getLiveStreamsBaseOptions = () => ({
-    ...baseOptions,
-    headers: {
-      ...baseOptions.headers,
-    },
-    path: `${baseOptions.path}/liveStreams?access_token=${YoutubeAuthService.getAccessToken()}`,
-  });
+  const getLiveStreamsOptions = () => {
+    const baseOptions = getBaseOptions();
+    return {
+      ...baseOptions,
+      headers: {
+        ...baseOptions.headers,
+      },
+      path: `${baseOptions.path}/liveStreams`,
+    };
+  };
 
   return {
     fetchList() {
-      const liveStreamBaseOptions = getLiveStreamsBaseOptions();
+      const liveStreamsOptions = getLiveStreamsOptions();
       const queryParams = buildQueryString({
         part: 'snippet,cdn,contentDetails,status',
         mine: 'true',
       });
       const options = {
-        ...liveStreamBaseOptions,
-        path: `${liveStreamBaseOptions.path}&${queryParams}`,
+        ...liveStreamsOptions,
+        path: `${liveStreamsOptions.path}?${queryParams}`,
         method: 'GET',
       };
       return new Promise((resolve, reject) => {
@@ -188,13 +194,13 @@ const liveStreams = (() => {
     },
 
     insert() {
-      const liveStreamBaseOptions = getLiveStreamsBaseOptions();
+      const liveStreamsOptions = getLiveStreamsOptions();
       const queryParams = buildQueryString({
         part: 'id,snippet,cdn,contentDetails,status',
       });
       const options = {
-        ...liveStreamBaseOptions,
-        path: `${liveStreamBaseOptions.path}&${queryParams}`,
+        ...liveStreamsOptions,
+        path: `${liveStreamsOptions.path}?${queryParams}`,
         method: 'POST',
       };
       return new Promise((resolve, reject) => {

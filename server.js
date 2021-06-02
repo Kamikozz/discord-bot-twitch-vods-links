@@ -279,6 +279,10 @@ app.get('/youtube', async (req, res) => {
 });
 
 const startLiveBroadcastRestream = async (twitchStreamerIdOrLogin) => {
+  // NOTE: Once subprocess is spawned it will never stop until it shutdowns itself
+  // probably TODO: save spawned subprocess and run .stopLiveBroadcastRestream()
+  // by using subprocess.kill()
+
   // 1. Get valid LiveStreamId
   let { rtmpStreamId } = store.youtube;
   let rtmpStream;
@@ -299,7 +303,7 @@ const startLiveBroadcastRestream = async (twitchStreamerIdOrLogin) => {
 
   // 2. Get new LiveBroadcastId
   const liveBroadcastsInsertResult = await YoutubeService.liveBroadcastsInsert({
-    title: `Stream ${new Date().toLocaleString()}`,
+    title: `Stream ${twitchStreamerIdOrLogin} ${new Date().toLocaleString()}`,
     privacyStatus: 'private',
   });
   const liveBroadcastId = liveBroadcastsInsertResult.id;
@@ -309,7 +313,7 @@ const startLiveBroadcastRestream = async (twitchStreamerIdOrLogin) => {
 
   // 4. Start re-stream
   const rtmpUri = `${rtmpStream.cdn.ingestionInfo.ingestionAddress}/${rtmpStream.cdn.ingestionInfo.streamName}`;
-  const [mostQualityStream] = await twitchm3u8.getStream(twitchStreamerIdOrLogin);
+  const [mostQualityStream] = await twitchm3u8.getStream(twitchStreamerIdOrLogin.toLowerCase());
   const m3u8Playlist = mostQualityStream.url;
   ffmpeg.restream(m3u8Playlist, rtmpUri);
 };
