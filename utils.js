@@ -1,10 +1,12 @@
 const { spawn } = require('child_process');
 const nacl = require('tweetnacl');
+const crypto = require('crypto');
 
 /**
  * Function that is need to validate your request if using Discord API
+ * @param {Request} request
  */
-const isValidRequest = (request) => {
+const isValidDiscordRequest = (request) => {
   const signature = request.get('X-Signature-Ed25519');
   const timestamp = request.get('X-Signature-Timestamp');
   const requestBody = JSON.stringify(request.body);
@@ -13,6 +15,31 @@ const isValidRequest = (request) => {
     Buffer.from(signature, 'hex'),
     Buffer.from(process.env.DISCORD_APPLICATION_PUBLIC_KEY, 'hex'),
   );
+};
+
+/**
+ * Function that is need to validate your request if using Twitch EventSub API
+ */
+const isValidTwitchEventSubRequest = (req) => {
+  const messageId = req.header('Twitch-Eventsub-Message-Id');
+  const timestamp = req.header('Twitch-Eventsub-Message-Timestamp');
+  const messageSignature = req.header('Twitch-Eventsub-Message-Signature');
+
+  const currentTime = Math.floor(Date.now() / 1000);
+  const isTenMinutesExpired = Math.abs(currentTime - timestamp) > 600;
+  if (isTenMinutesExpired) {
+    return false;
+  }
+
+  const requestBody = JSON.stringify(req.body);
+  const message = messageId + timestamp + requestBody;
+
+  const computedSignature = [
+    'sha256',
+    crypto.createHmac('sha256', process.env.TWITCH_SIGNING_SECRET).update(message).digest('hex'),
+  ].join('=');
+
+  return computedSignature === messageSignature;
 };
 
 const isProduction = () => process.env.MODE === 'production';
@@ -81,7 +108,8 @@ const ffmpeg = {
 };
 
 module.exports = {
-  isValidRequest,
+  isValidDiscordRequest,
+  isValidTwitchEventSubRequest,
   isProduction,
   log,
   error,

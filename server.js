@@ -4,7 +4,7 @@ const twitchm3u8 = require('twitch-m3u8');
 
 const { PORT } = require('./globals');
 const {
-  log, error, isValidRequest, getRandomAwaitPhrase, ffmpeg,
+  log, error, isValidDiscordRequest, isValidTwitchEventSubRequest, getRandomAwaitPhrase, ffmpeg,
 } = require('./utils');
 const { twitch, discord, scheduler } = require('./api');
 const { YoutubeAuthService, YoutubeService } = require('./services');
@@ -59,7 +59,7 @@ app.post('/twitch', async (req, res) => {
 
 app.post('/discord', async (req, res) => {
   log('Got Discord Command: ', req.body);
-  if (!isValidRequest(req)) {
+  if (!isValidDiscordRequest(req)) {
     const errorText = 'Invalid request signature';
     error(errorText);
     return res.status(401).end(errorText);
@@ -324,6 +324,22 @@ app.get('/test_endpoint', async (req, res) => {
   if (!id) return res.status(404).end();
   res.status(200).end();
   startLiveBroadcastRestream(id);
+});
+
+app.post('/twitch_eventsub', (req, res) => {
+  const { headers, body } = req;
+  console.log(headers, body);
+  if (!isValidTwitchEventSubRequest(req)) {
+    return res.status(404).end();
+  }
+
+  const requestType = req.header('twitch-eventsub-message-type');
+  const isVerificationRequest = requestType === 'webhook_callback_verification';
+  if (isVerificationRequest) {
+    console.log('Verifying Webhook');
+    return res.status(200).end(body.challenge);
+  }
+  return res.status(200).end();
 });
 
 module.exports = {

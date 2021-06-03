@@ -23,6 +23,7 @@
 - HOST_URL=https://path.to.your.deployment.without.closing.slash
 - TWITCH_CLIENT_ID=<https://dev.twitch.tv/console>
 - TWITCH_CLIENT_SECRET=<https://dev.twitch.tv/console>
+- TWITCH_SIGNING_SECRET=<string between 10 and 100 characters that is used for Twitch EventSub API's requests verification>
 - DISCORD_WEBHOOK_PATH=/api/webhooks/**webhook or application id**/<webhook_token>
 - DISCORD_BOT_TOKEN=<navigate to https://discord.com/developers/applications and choose your application -> Bot>
 - DISCORD_APPLICATION_PUBLIC_KEY=<also retrieves on the https://discord.com/developers/applications page>
