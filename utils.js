@@ -1,6 +1,7 @@
 const { spawn } = require('child_process');
 const nacl = require('tweetnacl');
 const crypto = require('crypto');
+const https = require('https');
 
 /**
  * Function that is need to validate your request if using Discord API
@@ -107,6 +108,35 @@ const ffmpeg = {
   },
 };
 
+const MyResponse = (data, statusCode) => ({
+  statusCode,
+  json() {
+    return JSON.parse(data);
+  },
+  text() {
+    return data;
+  },
+});
+
+const fetch = (options, data) => new Promise((resolve, reject) => {
+  const req = https.request(options, (res) => {
+    let responseData = '';
+    res.on('data', (chunk) => {
+      responseData += chunk;
+    });
+    res.on('end', () => {
+      resolve(MyResponse(responseData, res.statusCode));
+    });
+    res.on('error', reject);
+  });
+
+  if (data) {
+    req.end(JSON.stringify(data));
+  } else {
+    req.end();
+  }
+});
+
 module.exports = {
   isValidDiscordRequest,
   isValidTwitchEventSubRequest,
@@ -116,4 +146,5 @@ module.exports = {
   getRandomAwaitPhrase,
   buildQueryString,
   ffmpeg,
+  fetch,
 };

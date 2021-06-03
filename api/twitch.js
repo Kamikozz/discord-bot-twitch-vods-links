@@ -1,18 +1,17 @@
-const https = require('https');
-
 const { SUBSCRIPTION_LEASE_SECONDS } = require('../globals');
-const { buildQueryString } = require('../utils');
+const { buildQueryString, fetch } = require('../utils');
 const scheduler = require('./scheduler');
 const Settings = require('../models/settings.model');
 
 const isValidTwitchClientId = (clientId) => clientId === process.env.TWITCH_CLIENT_ID;
 
-const getBaseOptions = () => [{
-  hostname: 'api.twitch.tv',
-}, {
+const authUrl = new URL('https://id.twitch.tv/oauth2');
+const apiUrl = new URL('https://api.twitch.tv/helix');
+
+const getBaseHeaders = () => ({
   Authorization: `Bearer ${process.env.TWITCH_TOKEN}`,
   'Client-Id': process.env.TWITCH_CLIENT_ID,
-}];
+});
 
 const token = () => {
   const { TWITCH_CLIENT_ID, TWITCH_CLIENT_SECRET } = process.env;
@@ -22,26 +21,12 @@ const token = () => {
     grant_type: 'client_credentials',
   });
   const options = {
-    hostname: 'id.twitch.tv',
-    path: `/oauth2/token?${queryParams}`,
+    hostname: authUrl.hostname,
+    path: `${authUrl.pathname}/token?${queryParams}`,
     method: 'POST',
   };
-  return new Promise((resolve, reject) => {
-    const req = https.request(options, (res) => {
-      let responseData = '';
-      res.on('data', (chunk) => {
-        responseData += chunk;
-      });
-      res.on('end', () => {
-        const parsedJson = JSON.parse(responseData);
-        resolve(parsedJson);
-      });
-      res.on('error', () => {
-        reject();
-      });
-    });
-    req.end();
-  });
+  return fetch(options)
+    .then((res) => res.json());
 };
 
 const auth = async ({
@@ -73,27 +58,16 @@ const getUsersInformation = (users, idOrLogin) => {
   const queryString = idOrLogin
     ? users.map((user) => `${idOrLogin}=${user}`).join('&')
     : users;
-  const [baseOptions, headers] = getBaseOptions();
+  const baseHeaders = getBaseHeaders();
   const options = {
-    ...baseOptions,
-    headers,
-    path: `/helix/users?${queryString}`,
+    headers: baseHeaders,
+    hostname: apiUrl.hostname,
+    path: `${apiUrl.pathname}/users?${queryString}`,
+    method: 'GET',
   };
-  return new Promise((resolve, reject) => {
-    https.get(options, (res) => {
-      let responseData = '';
-      res.on('data', (chunk) => {
-        responseData += chunk;
-      });
-      res.on('end', () => {
-        const parsedJson = JSON.parse(responseData);
-        resolve(parsedJson.data);
-      });
-      res.on('error', () => {
-        reject();
-      });
-    });
-  });
+  return fetch(options)
+    .then((res) => res.json())
+    .then(({ data }) => data);
 };
 
 /**
@@ -109,33 +83,33 @@ const getUsersInformationByIds = (userIds) => getUsersInformation(userIds, 'id')
  */
 const getUsersInformationByNames = (usernames) => getUsersInformation(usernames, 'login');
 
+/**
+ * @deprecated
+ */
 const subscribeAndUnsubscribeHandler = (userId, leaseSeconds, isSubscribe) => {
-  const [baseOptions, headers] = getBaseOptions();
+  const baseHeaders = getBaseHeaders();
   const options = {
-    ...baseOptions,
     headers: {
-      ...headers,
+      ...baseHeaders,
       'Content-Type': 'application/json',
     },
-    path: '/helix/webhooks/hub',
+    hostname: apiUrl.hostname,
+    path: `${apiUrl.pathname}/webhooks/hub`,
     method: 'POST',
   };
-  return new Promise((resolve, reject) => {
-    const req = https.request(options, (res) => {
-      const isOk = res.statusCode === 202;
-      if (isOk) {
-        resolve();
-      } else {
-        reject();
+  const data = {
+    'hub.callback': `${process.env.HOST_URL}/twitch?userId=${userId}`,
+    'hub.mode': isSubscribe ? 'subscribe' : 'unsubscribe',
+    'hub.topic': `${apiUrl.href}/streams?user_id=${userId}`,
+    'hub.lease_seconds': leaseSeconds,
+  };
+  return fetch(options, data)
+    .then((res) => {
+      if (res.statusCode !== 202) {
+        throw new Error();
       }
+      return res;
     });
-    req.end(JSON.stringify({
-      'hub.callback': `${process.env.HOST_URL}/twitch?userId=${userId}`,
-      'hub.mode': isSubscribe ? 'subscribe' : 'unsubscribe',
-      'hub.topic': `https://api.twitch.tv/helix/streams?user_id=${userId}`,
-      'hub.lease_seconds': leaseSeconds,
-    }));
-  });
 };
 
 const subscribe = (userId, leaseSeconds = 0) => (
@@ -184,52 +158,83 @@ const resubscribe = async ({
 };
 
 const getSubscriptions = () => {
-  const [baseOptions, headers] = getBaseOptions();
+  const baseHeaders = getBaseHeaders();
   const options = {
-    ...baseOptions,
-    headers,
-    path: '/helix/webhooks/subscriptions',
+    headers: baseHeaders,
+    hostname: apiUrl.hostname,
+    path: `${apiUrl.pathname}/webhooks/subscriptions`,
+    method: 'GET',
   };
-  return new Promise((resolve, reject) => {
-    https.get(options, (res) => {
-      let responseData = '';
-      res.on('data', (chunk) => {
-        responseData += chunk;
-      });
-      res.on('end', () => {
-        const parsedJson = JSON.parse(responseData);
-        resolve(parsedJson);
-      });
-      res.on('error', () => {
-        reject();
-      });
-    });
-  });
+  return fetch(options)
+    .then((res) => res.json());
 };
 
 const getUserVideos = (userId) => {
-  const [baseOptions, headers] = getBaseOptions();
+  const baseHeaders = getBaseHeaders();
   const queryParams = buildQueryString({ user_id: userId });
   const options = {
-    ...baseOptions,
-    headers,
-    path: `/helix/videos?${queryParams}`,
+    headers: baseHeaders,
+    hostname: apiUrl.hostname,
+    path: `${apiUrl.pathname}/videos?${queryParams}`,
+    method: 'GET',
   };
-  return new Promise((resolve, reject) => {
-    https.get(options, (res) => {
-      let responseData = '';
-      res.on('data', (chunk) => {
-        responseData += chunk;
-      });
-      res.on('end', () => {
-        const parsedJson = JSON.parse(responseData);
-        resolve(parsedJson.data);
-      });
-      res.on('error', () => {
-        reject();
-      });
-    });
-  });
+  return fetch(options)
+    .then((res) => res.json())
+    .then(({ data }) => data);
+};
+
+const eventSub = {
+  getSubscriptions() {
+    const baseHeaders = getBaseHeaders();
+    const options = {
+      headers: baseHeaders,
+      hostname: apiUrl.hostname,
+      path: `${apiUrl.pathname}/eventsub/subscriptions`,
+      method: 'GET',
+    };
+    return fetch(options);
+  },
+
+  /**
+   * @param {string} subscriptionType https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types
+   */
+  createSubscription(subscriptionType) {
+    const baseHeaders = getBaseHeaders();
+    const options = {
+      headers: {
+        ...baseHeaders,
+        'Content-Type': 'application/json',
+      },
+      hostname: apiUrl.hostname,
+      path: `${apiUrl.pathname}/eventsub/subscriptions`,
+      method: 'POST',
+    };
+    const data = {
+      type: subscriptionType,
+      version: '1',
+      condition: {
+        broadcaster_user_id: '12826',
+      },
+      transport: {
+        method: 'webhook',
+        callback: 'https://a70b94490abb.ngrok.io/twitch_eventsub',
+        secret: process.env.TWITCH_SIGNING_SECRET,
+      },
+    };
+    return fetch(options, data);
+  },
+
+  deleteSubscription(subscriptionId) {
+    const baseHeaders = getBaseHeaders();
+    const queryParams = buildQueryString({ id: subscriptionId });
+    const options = {
+      headers: baseHeaders,
+      hostname: apiUrl.hostname,
+      path: `${apiUrl.pathname}/eventsub/subscriptions?${queryParams}`,
+      method: 'DELETE',
+    };
+    return fetch(options);
+  },
 };
 
 module.exports = {
@@ -243,4 +248,5 @@ module.exports = {
   subscribe,
   unsubscribe,
   getUserVideos,
+  eventSub,
 };
