@@ -2,7 +2,7 @@ const https = require('https');
 
 const AuthService = require('./auth/auth');
 const YoutubeAuthService = require('./auth/youtube-auth');
-const { buildQueryString } = require('../utils');
+const { buildQueryString, fetch } = require('../utils');
 
 // https://youtube.googleapis.com/youtube/v3
 const getBaseOptions = () => ({
@@ -27,12 +27,12 @@ const liveBroadcasts = (() => {
   };
 
   return {
-    fetchList() {
+    fetchList(params) {
       const liveBroadcastsOptions = getLiveBroadcastsOptions();
       const queryParams = buildQueryString({
         part: 'snippet,contentDetails,status',
         broadcastType: 'all',
-        mine: 'true',
+        ...params,
       });
       const options = {
         ...liveBroadcastsOptions,
@@ -143,6 +143,26 @@ const liveBroadcasts = (() => {
         req.end();
       });
     },
+
+    update(liveBroadcastsUpdate) {
+      const liveBroadcastsOptions = getLiveBroadcastsOptions();
+      const queryParams = buildQueryString({ part: 'snippet,contentDetails,status' });
+      const options = {
+        ...liveBroadcastsOptions,
+        path: `${liveBroadcastsOptions.path}?${queryParams}`,
+        method: 'PUT',
+      };
+      return fetch(options, liveBroadcastsUpdate)
+        .then((res) => {
+          const json = res.json();
+          if (res.statusCode !== 200) {
+            throw new Error(
+              `[YouTube] ${json.error.status}(${res.statusCode}): ${json.error.message}`,
+            );
+          }
+          return json;
+        });
+    },
   };
 })();
 
@@ -244,8 +264,20 @@ class YoutubeService {
   }
 
   // Live Broadcasts
-  static liveBroadcastsList() {
-    return this.authorizedRequest(liveBroadcasts.fetchList);
+  /**
+   * Retrieve list of Live Broadcasts.
+   * @param {string} [id] YouTube Data v3 API Live Broadcast id
+   */
+  static liveBroadcastsList(id) {
+    return this.authorizedRequest(() => {
+      const params = {};
+      if (id) {
+        params.id = id;
+      } else {
+        params.mine = 'true';
+      }
+      return liveBroadcasts.fetchList(params);
+    });
   }
 
   /**
@@ -261,6 +293,10 @@ class YoutubeService {
    */
   static liveBroadcastsBind(broadcastId, streamId) {
     return this.authorizedRequest(() => liveBroadcasts.bind(broadcastId, streamId));
+  }
+
+  static liveBroadcastsUpdate(updatedLiveBroadcast) {
+    return this.authorizedRequest(() => liveBroadcasts.update(updatedLiveBroadcast));
   }
 
   // Live Streams

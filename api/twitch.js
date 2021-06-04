@@ -82,20 +82,6 @@ const getUsersInformationByIds = (userIds) => getUsersInformation(userIds, 'id')
  */
 const getUsersInformationByNames = (usernames) => getUsersInformation(usernames, 'login');
 
-const getUserVideos = (userId) => {
-  const baseHeaders = getBaseHeaders();
-  const queryParams = buildQueryString({ user_id: userId });
-  const options = {
-    headers: baseHeaders,
-    hostname: apiUrl.hostname,
-    path: `${apiUrl.pathname}/videos?${queryParams}`,
-    method: 'GET',
-  };
-  return fetch(options)
-    .then((res) => res.json())
-    .then(({ data }) => data);
-};
-
 const eventSub = {
   // https://dev.twitch.tv/docs/eventsub#response
   subscriptionsStatus: {
@@ -221,6 +207,41 @@ const getSubscriptions = () => {
     .then((res) => res.json());
 };
 
+const getUserVideos = (userId) => {
+  const baseHeaders = getBaseHeaders();
+  const queryParams = buildQueryString({ user_id: userId });
+  const options = {
+    headers: baseHeaders,
+    hostname: apiUrl.hostname,
+    path: `${apiUrl.pathname}/videos?${queryParams}`,
+    method: 'GET',
+  };
+  return fetch(options)
+    .then((res) => res.json())
+    .then(({ data }) => data);
+};
+
+const getStreams = (userId, streamsQuantity = 1) => {
+  const queryParams = buildQueryString({
+    first: streamsQuantity,
+    user_id: userId,
+  });
+  const options = {
+    headers: getBaseHeaders(),
+    hostname: apiUrl.hostname,
+    path: `${apiUrl.pathname}/streams?${queryParams}`,
+    method: 'GET',
+  };
+  return fetch(options)
+    .then((res) => {
+      const json = res.json();
+      if (res.statusCode !== 200) {
+        throw new Error(`[Twitch] /streams ${json.error} (${res.statusCode}): ${json.message}`);
+      }
+      return json.data;
+    });
+};
+
 module.exports = {
   token,
   auth,
@@ -232,4 +253,5 @@ module.exports = {
   unsubscribe,
   getUserVideos,
   eventSub,
+  getStreams,
 };

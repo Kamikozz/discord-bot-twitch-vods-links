@@ -6,7 +6,7 @@ const { PORT } = require('./globals');
 const {
   log, error, isValidDiscordRequest, isValidTwitchEventSubRequest, getRandomAwaitPhrase, ffmpeg,
 } = require('./utils');
-const { twitch, discord, scheduler } = require('./api');
+const { twitch, discord } = require('./api');
 const { YoutubeAuthService, YoutubeService } = require('./services');
 const Settings = require('./models/settings.model');
 const store = require('./store');
@@ -73,31 +73,45 @@ const startLiveBroadcastRestream = async (twitchStreamerIdOrLogin, broadcastTitl
 };
 
 app.post('/twitch', async (req, res) => {
-  const { userId } = req.query;
-  log(req.body, userId);
-  res.status(200).send('OK');
-  if (!userId) return;
-  if (req.body.data.length) {
-    log('Stream Change Events');
-  } else {
-    log('Stream Offline Event');
-    const [userVideos, messages] = await Promise.all([
-      twitch.getUserVideos(userId),
-      discord.getMessages({ channelId: process.env.DISCORD_BOT_CHANNEL_ID }),
-    ]);
-    const [lastVideo] = userVideos;
-    const { thumbnail_url: thumbnailUrl } = lastVideo;
-    const vodUrl = `https://vod-secure.twitch.tv/${thumbnailUrl.split('/')[5]}/chunked/index-dvr.m3u8`;
-    const [lastMessage] = messages;
-    const isAlreadyPosted = lastMessage.content.includes(vodUrl);
-    if (!isAlreadyPosted) {
-      const { title } = lastVideo;
-      const discordObj = {
-        title,
-        imageUrl: thumbnailUrl.replace('%{width}', '600').replace('%{height}', '350'),
-        vodUrl,
-      };
-      discord.sendToDiscordFormatted(discordObj);
+  const { headers, body } = req;
+  log(headers, body);
+  if (!isValidTwitchEventSubRequest(req)) {
+    return res.status(404).end();
+  }
+
+  const requestType = req.header('twitch-eventsub-message-type');
+  const isVerificationRequest = requestType === 'webhook_callback_verification';
+  if (isVerificationRequest) {
+    log('Verifying Webhook');
+    return res.status(200).end(body.challenge);
+  }
+
+  res.status(200).end();
+
+  const subscriptionType = body.subscription.type;
+  switch (subscriptionType) {
+    case 'stream.online': {
+      log('Stream Online Event');
+      const { event } = body;
+      const {
+        broadcaster_user_id: twitchUserId,
+        broadcaster_user_login: twitchUserLogin,
+      } = event;
+
+      const { url, liveBroadcastId } = await startLiveBroadcastRestream(twitchUserLogin);
+
+      const [[{ title }], { items: [liveBroadcast] }] = await Promise.all([
+        twitch.getStreams(twitchUserId),
+        YoutubeService.liveBroadcastsList(liveBroadcastId),
+      ]);
+      liveBroadcast.snippet.title = title;
+      YoutubeService.liveBroadcastsUpdate(liveBroadcast);
+      discord.createMessage({ message: `${title} | ${url}` });
+      break;
+    }
+    default: {
+      log('Unhandled Subscription Event');
+      break;
     }
   }
 });

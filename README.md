@@ -13,7 +13,7 @@
   - express framework
 - [Mongodb's Atlas Cloud](https://cloud.mongodb.com/) Solution (as universal storage for scheduled events' ids for `SchedulerAPI`)
   - Mongoose (as ORM MongoDB)
-- [Scheduler API](https://schedulerapi.com/) (as HTTP webhook service for scheduled tasks like resubscribe or reauthorize)
+- **deprecated** [Scheduler API](https://schedulerapi.com/) (as HTTP webhook service for scheduled tasks like resubscribe or reauthorize)
 - [Discord API](https://discord.com/developers) (as UI)
 - [Twitch API](https://dev.twitch.tv/) (as service for twitch user's streams' events, authentication & subscriptions)
 - [Heroku](https://dashboard.heroku.com/) (to deploy and store env variables (or you can use your deployment, but you need to set env vars on your own as listed below))
