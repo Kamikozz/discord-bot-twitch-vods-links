@@ -139,25 +139,19 @@ app.post('/discord', async (req, res) => {
     }
     case 'subscriptions': {
       log('Subscriptions command');
-      const obj = {}; // store { 'userId': '2021-11-123:1321' }
-      const subscriptionsResult = await twitch.getSubscriptions();
+      const subscriptionsResult = await twitch.eventSub.getSubscriptions(
+        twitch.eventSub.subscriptionsStatus.enabled,
+      );
       log('> subscriptionsResult: ', subscriptionsResult);
-      const { data: subscriptions } = subscriptionsResult;
-      if (!subscriptions.length) {
+      const { data: subscriptionsData } = subscriptionsResult;
+      if (!subscriptionsData.length) {
         return editDiscordBotReplyMessage({ content: 'Нет активных подписок' });
       }
-      const userIds = subscriptions.map(({ topic, expires_at: expiresAt }) => {
-        const [, userId] = topic.split('user_id=');
-        obj[userId] = expiresAt;
-        return userId;
-      });
-      const usersInformation = await twitch.getUsersInformationByIds(userIds);
-      const result = usersInformation
-        .map(({ id, display_name: displayName }) => {
-          const expiresAt = obj[id];
-          return `- ${displayName} | ${new Date(expiresAt).toLocaleString('ru-RU')}`;
-        })
-        .join('\n');
+      const uniqueUserIds = new Set();
+      subscriptionsData
+        .forEach(({ condition }) => uniqueUserIds.add(condition.broadcaster_user_id));
+      const usersInformation = await twitch.getUsersInformationByIds(Array.from(uniqueUserIds));
+      const result = usersInformation.map((user) => `- ${user.display_name}`).join('\n');
       editDiscordBotReplyMessage({ content: `Текущие подписки:\n${result}` });
       break;
     }
@@ -195,38 +189,19 @@ app.post('/discord', async (req, res) => {
         });
       }
 
-      const [userInformation] = await twitch.getUsersInformationByNames([searchByName]);
-      if (!userInformation) {
-        return editDiscordBotReplyMessage({
-          content: `Пользователя ${searchByName} не существует`,
-        });
-      }
-      const { id, login } = userInformation;
-
-      const { twitchSubscriptions = {} } = await Settings.getSettings() || {};
-      const scheduledRenewalSubscriptionId = twitchSubscriptions[login];
-      if (!scheduledRenewalSubscriptionId) {
-        return editDiscordBotReplyMessage({
-          content: `Вы не подписаны на ${searchByName}`,
-        });
+      try {
+        await twitch.unsubscribe(searchByName);
+      } catch (e) {
+        error(e);
+        return editDiscordBotReplyMessage({ content: `Unsubscribing error: ${e.message}` });
       }
 
-      Promise.all([
-        scheduler.cancelSchedule(scheduledRenewalSubscriptionId),
-        twitch.unsubscribe(id),
-      ]).then(async () => {
-        await Settings.unsubscribe(login);
-        editDiscordBotReplyMessage({
-          content: `<@${discordUserId}> отписался от ${searchByName}`,
-          allowedUsersMentionsIds: [discordUserId],
-        });
-      }).catch((err) => {
-        error(err);
-        editDiscordBotReplyMessage({
-          content: `Пользователь ${searchByName} найден, но произошла ошибка отписки от Scheduler или Twitch`,
-        });
+      return editDiscordBotReplyMessage({
+        content: `<@${discordUserId}> отписался от ${searchByName}`,
+        allowed_mentions: {
+          users: [discordUserId],
+        },
       });
-      break;
     }
     case 'auth': {
       log('Auth command');

@@ -82,50 +82,6 @@ const getUsersInformationByIds = (userIds) => getUsersInformation(userIds, 'id')
  */
 const getUsersInformationByNames = (usernames) => getUsersInformation(usernames, 'login');
 
-/**
- * @deprecated
- */
-const subscribeAndUnsubscribeHandler = (userId, leaseSeconds, isSubscribe) => {
-  const baseHeaders = getBaseHeaders();
-  const options = {
-    headers: {
-      ...baseHeaders,
-      'Content-Type': 'application/json',
-    },
-    hostname: apiUrl.hostname,
-    path: `${apiUrl.pathname}/webhooks/hub`,
-    method: 'POST',
-  };
-  const data = {
-    'hub.callback': `${process.env.HOST_URL}/twitch?userId=${userId}`,
-    'hub.mode': isSubscribe ? 'subscribe' : 'unsubscribe',
-    'hub.topic': `${apiUrl.href}/streams?user_id=${userId}`,
-    'hub.lease_seconds': leaseSeconds,
-  };
-  return fetch(options, data)
-    .then((res) => {
-      if (res.statusCode !== 202) {
-        throw new Error();
-      }
-      return res;
-    });
-};
-const unsubscribe = (userId, leaseSeconds = 0) => (
-  subscribeAndUnsubscribeHandler(userId, leaseSeconds, false)
-);
-
-const getSubscriptions = () => {
-  const baseHeaders = getBaseHeaders();
-  const options = {
-    headers: baseHeaders,
-    hostname: apiUrl.hostname,
-    path: `${apiUrl.pathname}/webhooks/subscriptions`,
-    method: 'GET',
-  };
-  return fetch(options)
-    .then((res) => res.json());
-};
-
 const getUserVideos = (userId) => {
   const baseHeaders = getBaseHeaders();
   const queryParams = buildQueryString({ user_id: userId });
@@ -141,15 +97,33 @@ const getUserVideos = (userId) => {
 };
 
 const eventSub = {
-  getSubscriptions() {
+  // https://dev.twitch.tv/docs/eventsub#response
+  subscriptionsStatus: {
+    enabled: 'enabled', // designates that the subscription is in an operable state and is valid.
+    webhookCallbackVerificationPending: 'webhook_callback_verification_pending', // webhook is pending verification of the callback specified in the subscription creation request.
+    webhookCallbackVerificationFailed: 'webhook_callback_verification_failed', // webhook failed verification of the callback specified in the subscription creation request.
+    notificationFailuresExceeded: 'notification_failures_exceeded', // notification delivery failure rate was too high.
+    authorizationRevoked: 'authorization_revoked', // authorization for user(s) in the condition was revoked.
+    userRemoved: 'user_removed', // a user in the condition of the subscription was removed.
+  },
+
+  getSubscriptions(status = '') {
     const baseHeaders = getBaseHeaders();
+    const queryParams = buildQueryString({ status });
     const options = {
       headers: baseHeaders,
       hostname: apiUrl.hostname,
-      path: `${apiUrl.pathname}/eventsub/subscriptions`,
+      path: `${apiUrl.pathname}/eventsub/subscriptions?${queryParams}`,
       method: 'GET',
     };
-    return fetch(options);
+    return fetch(options)
+      .then((res) => {
+        const data = res.json();
+        if (res.statusCode !== 200) {
+          throw new Error(`[Twitch EventSub] /getSubscriptions ${data.error} (${res.statusCode}): ${data.message}`);
+        }
+        return data;
+      });
   },
 
   /**
@@ -197,7 +171,13 @@ const eventSub = {
       path: `${apiUrl.pathname}/eventsub/subscriptions?${queryParams}`,
       method: 'DELETE',
     };
-    return fetch(options);
+    return fetch(options)
+      .then((res) => {
+        if (res.statusCode !== 204) {
+          const json = res.json();
+          throw new Error(`[Twitch EventSub] /cancelSubscription ${json.error} (${res.statusCode}): ${json.message}`);
+        }
+      });
   },
 };
 
@@ -209,6 +189,36 @@ const subscribe = async (searchByName) => {
     ['stream.online']
       .map((subscriptionType) => eventSub.createSubscription(subscriptionType, userId)),
   );
+};
+
+const unsubscribe = async (searchByName) => {
+  const [userInformation] = await getUsersInformationByNames([searchByName]);
+  if (!userInformation) {
+    throw new Error(`User \`${searchByName}\` doesn't exist on Twitch`);
+  }
+  const { id: userId } = userInformation;
+  const { data: subscriptions } = await eventSub.getSubscriptions();
+  const subscriptionsFilteredByUserId = subscriptions
+    .filter(({ condition }) => condition.broadcaster_user_id === userId);
+  if (!subscriptionsFilteredByUserId.length) {
+    throw new Error(`Вы не подписаны на ${searchByName}`);
+  }
+  return Promise.all(
+    subscriptionsFilteredByUserId
+      .map(({ id: subscriptionId }) => eventSub.deleteSubscription(subscriptionId)),
+  );
+};
+
+const getSubscriptions = () => {
+  const baseHeaders = getBaseHeaders();
+  const options = {
+    headers: baseHeaders,
+    hostname: apiUrl.hostname,
+    path: `${apiUrl.pathname}/webhooks/subscriptions`,
+    method: 'GET',
+  };
+  return fetch(options)
+    .then((res) => res.json());
 };
 
 module.exports = {

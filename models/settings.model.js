@@ -45,19 +45,6 @@ settingsSchema.statics.setTwitchReauthId = function (twitchReauthId) {
   }, { upsert: true }, errorHandler);
 };
 
-
-/**
- *
- * @param {String} twitchUsername
- */
-settingsSchema.statics.unsubscribe = function (twitchUsername) {
-  return this.findOneAndUpdate({}, {
-    $unset: {
-      [`twitchSubscriptions.${twitchUsername}`]: '',
-    },
-  }, errorHandler);
-};
-
 /**
  *
  * @param {String} refreshToken
