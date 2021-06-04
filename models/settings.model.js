@@ -11,7 +11,6 @@ const errorHandler = (err, result) => {
 const settingsSchema = new Schema({
   twitchToken: String,
   twitchReauthId: String,
-  twitchSubscriptions: Object,
   youtubeRefreshToken: String,
   youtubeRtmpStreamId: String,
 }, { versionKey: false });
@@ -46,18 +45,6 @@ settingsSchema.statics.setTwitchReauthId = function (twitchReauthId) {
   }, { upsert: true }, errorHandler);
 };
 
-/**
- *
- * @param {String} twitchUsername
- * @param {String} scheduledRenewalId
- */
-settingsSchema.statics.subscribe = function (twitchUsername, scheduledRenewalId) {
-  return this.findOneAndUpdate({}, {
-    $set: {
-      [`twitchSubscriptions.${twitchUsername}`]: scheduledRenewalId,
-    },
-  }, { upsert: true }, errorHandler);
-};
 
 /**
  *

@@ -27,6 +27,51 @@ app.get('/twitch', (req, res) => {
     .send(req.query['hub.challenge']);
 });
 
+const startLiveBroadcastRestream = async (twitchStreamerIdOrLogin, broadcastTitle) => {
+  // NOTE: Once subprocess is spawned it will never stop until it shutdowns itself
+  // probably TODO: save spawned subprocess and run .stopLiveBroadcastRestream()
+  // by using subprocess.kill()
+
+  // 1. Get valid LiveStreamId
+  let { rtmpStreamId } = store.youtube;
+  let rtmpStream;
+  if (rtmpStreamId) {
+    const liveStreamsListResult = await YoutubeService.liveStreamsList();
+    const { items } = liveStreamsListResult;
+    rtmpStream = items.find((item) => item.id === rtmpStreamId);
+    rtmpStreamId = rtmpStream ? rtmpStream.id : null;
+  }
+
+  if (!rtmpStreamId) {
+    const liveStreamsInsertResult = await YoutubeService.liveStreamsInsert();
+    rtmpStream = liveStreamsInsertResult;
+    rtmpStreamId = liveStreamsInsertResult.id;
+    Settings.setYoutubeRtmpStreamId(rtmpStreamId); // save to db due to future usability
+    store.youtube.rtmpStreamId = rtmpStreamId; // save to local db
+  }
+
+  // 2. Get new LiveBroadcastId
+  const liveBroadcastsInsertResult = await YoutubeService.liveBroadcastsInsert({
+    title: !broadcastTitle ? `Stream ${new Date().toLocaleString()}` : broadcastTitle,
+    privacyStatus: 'private',
+  });
+  const liveBroadcastId = liveBroadcastsInsertResult.id;
+
+  // 3. Bind LiveBroadcastId with LiveStreamId
+  await YoutubeService.liveBroadcastsBind(liveBroadcastId, rtmpStreamId);
+
+  // 4. Start re-stream
+  const rtmpUri = `${rtmpStream.cdn.ingestionInfo.ingestionAddress}/${rtmpStream.cdn.ingestionInfo.streamName}`;
+  const [mostQualityStream] = await twitchm3u8.getStream(twitchStreamerIdOrLogin.toLowerCase());
+  const m3u8Playlist = mostQualityStream.url;
+  ffmpeg.restream(m3u8Playlist, rtmpUri);
+
+  return {
+    liveBroadcastId,
+    url: `https://youtu.be/${liveBroadcastId}`,
+  };
+};
+
 app.post('/twitch', async (req, res) => {
   const { userId } = req.query;
   log(req.body, userId);
@@ -126,24 +171,19 @@ app.post('/discord', async (req, res) => {
         });
       }
 
-      const resubscribeResult = await twitch.resubscribe({
-        clientId: process.env.TWITCH_CLIENT_ID,
-        searchByName,
-      });
-      log('Result of slash command resubscribe:', resubscribeResult);
-      if (typeof resubscribeResult === 'string') {
-        editDiscordBotReplyMessage({
-          content: resubscribeResult,
-        });
-      } else {
-        editDiscordBotReplyMessage({
-          content: `<@${discordUserId}> подписался на ${searchByName}`,
-          allowed_mentions: {
-            users: [discordUserId],
-          },
-        });
+      try {
+        await twitch.subscribe(searchByName);
+      } catch (e) {
+        error(e);
+        return editDiscordBotReplyMessage({ content: `Subscribing error: ${e.message}` });
       }
-      break;
+
+      return editDiscordBotReplyMessage({
+        content: `<@${discordUserId}> подписался на ${searchByName}`,
+        allowed_mentions: {
+          users: [discordUserId],
+        },
+      });
     }
     case 'unsubscribe': {
       const { options } = payload;
@@ -223,25 +263,6 @@ app.get('/auth', async (req, res) => {
   }
 });
 
-app.get('/resubscribe', async (req, res) => {
-  log('Got Twitch user resubscribe', req.query);
-  const { clientId, userId, login } = req.query;
-
-  const resubscribeResult = await twitch.resubscribe({ clientId, userId, login });
-  log('Result of endpoint resubscribe:', resubscribeResult);
-  res.header('Content-Type', 'text/plain');
-  if (typeof resubscribeResult === 'string') {
-    res
-      .status(401)
-      .end(resubscribeResult);
-    discord.createMessage({ message: resubscribeResult });
-  } else {
-    res
-      .status(200)
-      .end('OK');
-  }
-});
-
 app.get('/youtube', async (req, res) => {
   const { code = '' } = req.query;
   if (!code.length) {
@@ -276,70 +297,6 @@ app.get('/youtube', async (req, res) => {
     </html>
   `);
   log(store);
-});
-
-const startLiveBroadcastRestream = async (twitchStreamerIdOrLogin) => {
-  // NOTE: Once subprocess is spawned it will never stop until it shutdowns itself
-  // probably TODO: save spawned subprocess and run .stopLiveBroadcastRestream()
-  // by using subprocess.kill()
-
-  // 1. Get valid LiveStreamId
-  let { rtmpStreamId } = store.youtube;
-  let rtmpStream;
-  if (rtmpStreamId) {
-    const liveStreamsListResult = await YoutubeService.liveStreamsList();
-    const { items } = liveStreamsListResult;
-    rtmpStream = items.find((item) => item.id === rtmpStreamId);
-    rtmpStreamId = rtmpStream ? rtmpStream.id : null;
-  }
-
-  if (!rtmpStreamId) {
-    const liveStreamsInsertResult = await YoutubeService.liveStreamsInsert();
-    rtmpStream = liveStreamsInsertResult;
-    rtmpStreamId = liveStreamsInsertResult.id;
-    Settings.setYoutubeRtmpStreamId(rtmpStreamId); // save to db due to future usability
-    store.youtube.rtmpStreamId = rtmpStreamId; // save to local db
-  }
-
-  // 2. Get new LiveBroadcastId
-  const liveBroadcastsInsertResult = await YoutubeService.liveBroadcastsInsert({
-    title: `Stream ${twitchStreamerIdOrLogin} ${new Date().toLocaleString()}`,
-    privacyStatus: 'private',
-  });
-  const liveBroadcastId = liveBroadcastsInsertResult.id;
-
-  // 3. Bind LiveBroadcastId with LiveStreamId
-  await YoutubeService.liveBroadcastsBind(liveBroadcastId, rtmpStreamId);
-
-  // 4. Start re-stream
-  const rtmpUri = `${rtmpStream.cdn.ingestionInfo.ingestionAddress}/${rtmpStream.cdn.ingestionInfo.streamName}`;
-  const [mostQualityStream] = await twitchm3u8.getStream(twitchStreamerIdOrLogin.toLowerCase());
-  const m3u8Playlist = mostQualityStream.url;
-  ffmpeg.restream(m3u8Playlist, rtmpUri);
-};
-
-// start new LiveBroadcast
-app.get('/test_endpoint', async (req, res) => {
-  const { id } = req.query;
-  if (!id) return res.status(404).end();
-  res.status(200).end();
-  startLiveBroadcastRestream(id);
-});
-
-app.post('/twitch_eventsub', (req, res) => {
-  const { headers, body } = req;
-  console.log(headers, body);
-  if (!isValidTwitchEventSubRequest(req)) {
-    return res.status(404).end();
-  }
-
-  const requestType = req.header('twitch-eventsub-message-type');
-  const isVerificationRequest = requestType === 'webhook_callback_verification';
-  if (isVerificationRequest) {
-    console.log('Verifying Webhook');
-    return res.status(200).end(body.challenge);
-  }
-  return res.status(200).end();
 });
 
 module.exports = {

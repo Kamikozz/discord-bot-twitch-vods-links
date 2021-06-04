@@ -1,6 +1,6 @@
 const https = require('https');
 
-const { TWITCH_TOKEN_LEASE_SECONDS, SUBSCRIPTION_LEASE_SECONDS } = require('../globals');
+const { TWITCH_TOKEN_LEASE_SECONDS } = require('../globals');
 const { buildQueryString } = require('../utils');
 
 const baseOptions = {
@@ -65,20 +65,6 @@ const scheduleReauth = () => {
   return schedule(when, url);
 };
 
-const scheduleResubscribe = (userId, login, body = {}) => {
-  const { HOST_URL, TWITCH_CLIENT_ID } = process.env;
-  const fiveMinutesBeforeEndSubscriptionLease = SUBSCRIPTION_LEASE_SECONDS - 5 * 60;
-  const when = new Date(Date.now() + fiveMinutesBeforeEndSubscriptionLease * 1000);
-  const queryParams = buildQueryString({
-    clientId: TWITCH_CLIENT_ID,
-    userId,
-    login,
-  });
-  const url = `${HOST_URL}/resubscribe?${queryParams}`;
-  const headers = {};
-  return schedule(when, url, body, headers);
-};
-
 const updateSchedule = ({
   id,
   when,
@@ -136,7 +122,6 @@ const cancelSchedule = (scheduledTaskId) => {
 module.exports = {
   schedule,
   scheduleReauth,
-  scheduleResubscribe,
   updateSchedule,
   cancelSchedule,
 };

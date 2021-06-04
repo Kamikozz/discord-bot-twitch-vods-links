@@ -1,4 +1,3 @@
-const { SUBSCRIPTION_LEASE_SECONDS } = require('../globals');
 const { buildQueryString, fetch } = require('../utils');
 const scheduler = require('./scheduler');
 const Settings = require('../models/settings.model');
@@ -111,51 +110,9 @@ const subscribeAndUnsubscribeHandler = (userId, leaseSeconds, isSubscribe) => {
       return res;
     });
 };
-
-const subscribe = (userId, leaseSeconds = 0) => (
-  subscribeAndUnsubscribeHandler(userId, leaseSeconds, true)
-);
-
 const unsubscribe = (userId, leaseSeconds = 0) => (
   subscribeAndUnsubscribeHandler(userId, leaseSeconds, false)
 );
-
-const resubscribe = async ({
-  clientId,
-  searchByName,
-  userId,
-  login,
-}) => {
-  if (!isValidTwitchClientId(clientId)) return 'ClientId doesn\'t match';
-
-  let twitchUserId;
-  let twitchUsername;
-  if (searchByName) {
-    const [userInformation] = await getUsersInformationByNames([searchByName]);
-    if (!userInformation) return `User \`${searchByName}\` doesn't exist on Twitch`;
-    const { id, login: twitchLogin } = userInformation;
-    twitchUserId = id;
-    twitchUsername = twitchLogin;
-  } else {
-    twitchUserId = userId;
-    twitchUsername = login;
-  }
-
-  try {
-    await subscribe(twitchUserId, SUBSCRIPTION_LEASE_SECONDS);
-  } catch (err) {
-    return `Twitch user subscribe error: ${err}`;
-  }
-
-  const schedulerResponse = await scheduler.scheduleResubscribe(twitchUserId, twitchUsername) || {};
-  const { id: newRenewalSubId, message } = schedulerResponse;
-  if (!newRenewalSubId) return `Scheduler error: ${message}`;
-
-  const { twitchSubscriptions = {} } = await Settings.getSettings() || {};
-  const renewalSubId = twitchSubscriptions[twitchUsername];
-  if (renewalSubId) scheduler.cancelSchedule(renewalSubId);
-  await Settings.subscribe(twitchUsername, newRenewalSubId);
-};
 
 const getSubscriptions = () => {
   const baseHeaders = getBaseHeaders();
@@ -198,7 +155,7 @@ const eventSub = {
   /**
    * @param {string} subscriptionType https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types
    */
-  createSubscription(subscriptionType) {
+  createSubscription(subscriptionType, userId) {
     const baseHeaders = getBaseHeaders();
     const options = {
       headers: {
@@ -213,15 +170,22 @@ const eventSub = {
       type: subscriptionType,
       version: '1',
       condition: {
-        broadcaster_user_id: '12826',
+        broadcaster_user_id: userId,
       },
       transport: {
         method: 'webhook',
-        callback: 'https://a70b94490abb.ngrok.io/twitch_eventsub',
+        callback: `${process.env.HOST_URL}/twitch`,
         secret: process.env.TWITCH_SIGNING_SECRET,
       },
     };
-    return fetch(options, data);
+    return fetch(options, data)
+      .then((res) => {
+        const json = res.json();
+        if (res.statusCode !== 202) {
+          throw new Error(`[Twitch EventSub] /createSubscription ${json.error} (${res.statusCode}): ${json.message}`);
+        }
+        return json;
+      });
   },
 
   deleteSubscription(subscriptionId) {
@@ -237,10 +201,19 @@ const eventSub = {
   },
 };
 
+const subscribe = async (searchByName) => {
+  const [userInformation] = await getUsersInformationByNames([searchByName]);
+  if (!userInformation) throw new Error(`User \`${searchByName}\` doesn't exist on Twitch`);
+  const { id: userId } = userInformation;
+  return Promise.all(
+    ['stream.online']
+      .map((subscriptionType) => eventSub.createSubscription(subscriptionType, userId)),
+  );
+};
+
 module.exports = {
   token,
   auth,
-  resubscribe,
   getSubscriptions,
   getUsersInformationByIds,
   getUsersInformationByNames,
