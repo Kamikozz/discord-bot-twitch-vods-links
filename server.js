@@ -79,6 +79,13 @@ app.post('/twitch', async (req, res) => {
     return res.status(404).end();
   }
 
+  // @see https://dev.twitch.tv/docs/eventsub#handling-duplicates
+  const requestMessageId = req.header('twitch-eventsub-message-id');
+  if (store.twitch.messages.has(requestMessageId)) {
+    return res.status(200).end();
+  }
+  store.twitch.messages.add(requestMessageId);
+
   const requestType = req.header('twitch-eventsub-message-type');
   const isVerificationRequest = requestType === 'webhook_callback_verification';
   if (isVerificationRequest) {
