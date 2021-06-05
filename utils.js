@@ -137,6 +137,39 @@ const fetch = (options, data) => new Promise((resolve, reject) => {
   }
 });
 
+const herokuPreventIdling = {
+  delayMinutes: 25,
+  timerId: null,
+  start(delayMinutes) {
+    if (delayMinutes) {
+      this.delayMinutes = delayMinutes;
+    }
+    const delay = this.delayMinutes * 60 * 1000;
+    const { hostname } = new URL(process.env.HOST_URL);
+    const options = {
+      hostname,
+      path: '/',
+      method: 'GET',
+    };
+    const job = async () => {
+      try {
+        await fetch(options);
+      } catch (e) {
+        //
+      }
+      this.timerId = setTimeout(job, delay);
+    };
+    this.timerId = setTimeout(job, delay);
+  },
+  stop() {
+    clearTimeout(this.timerId);
+    this.timerId = null;
+  },
+  isJobRunning() {
+    return Boolean(this.timerId);
+  },
+};
+
 module.exports = {
   isValidDiscordRequest,
   isValidTwitchEventSubRequest,
@@ -147,4 +180,5 @@ module.exports = {
   buildQueryString,
   ffmpeg,
   fetch,
+  herokuPreventIdling,
 };

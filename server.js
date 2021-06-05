@@ -4,7 +4,13 @@ const twitchm3u8 = require('twitch-m3u8');
 
 const { PORT } = require('./globals');
 const {
-  log, error, isValidDiscordRequest, isValidTwitchEventSubRequest, getRandomAwaitPhrase, ffmpeg,
+  log,
+  error,
+  isValidDiscordRequest,
+  isValidTwitchEventSubRequest,
+  getRandomAwaitPhrase,
+  ffmpeg,
+  herokuPreventIdling,
 } = require('./utils');
 const { twitch, discord } = require('./api');
 const { YoutubeAuthService, YoutubeService } = require('./services');
@@ -104,7 +110,9 @@ app.post('/twitch', async (req, res) => {
         broadcaster_user_id: twitchUserId,
         broadcaster_user_login: twitchUserLogin,
       } = event;
-
+      if (!herokuPreventIdling.isJobRunning()) {
+        herokuPreventIdling.start();
+      }
       const { url, liveBroadcastId } = await startLiveBroadcastRestream(twitchUserLogin);
 
       const [[{ title }], { items: [liveBroadcast] }] = await Promise.all([
@@ -114,6 +122,13 @@ app.post('/twitch', async (req, res) => {
       liveBroadcast.snippet.title = title;
       YoutubeService.liveBroadcastsUpdate(liveBroadcast);
       discord.createMessage({ message: `${title} | ${url}` });
+      break;
+    }
+    case 'stream.offline': {
+      log('Stream Offline Event');
+      if (herokuPreventIdling.isJobRunning()) {
+        herokuPreventIdling.stop();
+      }
       break;
     }
     default: {

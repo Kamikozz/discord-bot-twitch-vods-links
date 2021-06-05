@@ -172,7 +172,7 @@ const subscribe = async (searchByName) => {
   if (!userInformation) throw new Error(`User \`${searchByName}\` doesn't exist on Twitch`);
   const { id: userId } = userInformation;
   return Promise.all(
-    ['stream.online']
+    ['stream.online', 'stream.offline']
       .map((subscriptionType) => eventSub.createSubscription(subscriptionType, userId)),
   );
 };
