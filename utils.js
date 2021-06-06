@@ -78,7 +78,7 @@ function buildQueryString(paramsObj = {}) {
 }
 
 const ffmpeg = {
-  restream(m3u8Playlist, rtmpUri) {
+  restream(m3u8Playlist, rtmpUri, errorCallback) {
     const child = spawn('ffmpeg', [
       '-fflags',
       '+igndts',
@@ -104,6 +104,7 @@ const ffmpeg = {
 
     child.on('close', (code) => {
       log(`[FFMPEG] Child process exited with code ${code}`);
+      errorCallback();
     });
   },
 };

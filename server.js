@@ -70,7 +70,12 @@ const startLiveBroadcastRestream = async (twitchStreamerIdOrLogin, broadcastTitl
   const rtmpUri = `${rtmpStream.cdn.ingestionInfo.ingestionAddress}/${rtmpStream.cdn.ingestionInfo.streamName}`;
   const [mostQualityStream] = await twitchm3u8.getStream(twitchStreamerIdOrLogin.toLowerCase());
   const m3u8Playlist = mostQualityStream.url;
-  ffmpeg.restream(m3u8Playlist, rtmpUri);
+  const retryCallback = () => {
+    if (herokuPreventIdling.isJobRunning()) {
+      ffmpeg.restream(m3u8Playlist, rtmpUri, retryCallback);
+    }
+  };
+  ffmpeg.restream(m3u8Playlist, rtmpUri, retryCallback);
 
   return {
     liveBroadcastId,
