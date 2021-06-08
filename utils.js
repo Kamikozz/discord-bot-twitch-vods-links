@@ -82,10 +82,10 @@ const ffmpeg = {
     const child = spawn('ffmpeg', [
       '-fflags',
       '+igndts',
-      '-hide_banner',
+      // '-hide_banner', // attempt to avoid YouTube copyright policy
       '-i',
       m3u8Playlist,
-      '-c',
+      '-codec',
       'copy',
       '-f',
       'flv',
