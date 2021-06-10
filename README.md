@@ -1,6 +1,7 @@
 # Discord Bot for re-streaming Twitch.tv users' streams to YouTube (links generator)
 
-## ⚠ Outdated information ⚠
+## ⚠ Information ⚠
+Probably there will be no maintenance in the future, due to the YouTube's copyright policy.
 
 ## Stack
 - Node.js without `node-fetch`
@@ -33,6 +34,7 @@
 
 ## Available commands:
 - **/auth** - to *generate* Twitch `access_token` using `ClientId` & `ClientSecret` and *create scheduled task to reauthorize in `TWITCH_TOKEN_LEASE_SECONDS`* (max available days until token lease ~ 60) https://dev.twitch.tv/docs/authentication#types-of-tokens
+- **/auth_youtube** - ... // TODO:
 - **/logout** - COMING NOT SO SOON
 - **/subscribe <twitch_username>** - to *create* Twitch subscription on user's streams' events and *create scheduled task to resubscribe in `SUBSCRIPTION_LEASE_SECONDS`* (max available 10 days) https://dev.twitch.tv/docs/api/webhooks-reference#subscribe-tounsubscribe-from-events `hub.lease_seconds`
 - **/unsubscribe <twitch_username>** - to *unsubscribe* from Twitch user's streams' events and *remove scheduled task to resubscribe*

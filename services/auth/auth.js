@@ -7,10 +7,11 @@ class AuthService {
     discord.createMessage({ message: authLink });
   }
 
-  static youtubeTokenValidation() {
+  static async youtubeTokenValidation() {
     if (YoutubeAuthService.isValidToken()) return true;
     if (YoutubeAuthService.hasRefreshToken()) {
-      return YoutubeAuthService.refreshAccessToken();
+      const isTokenRefreshed = await YoutubeAuthService.refreshAccessToken();
+      if (isTokenRefreshed) return true;
     }
     this.requestYoutubeAuthorization();
     return false;
