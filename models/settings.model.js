@@ -1,20 +1,24 @@
 const mongoose = require('mongoose');
+
 const { Schema, model } = mongoose;
 
+const { error } = require('../utils');
+
 const errorHandler = (err, result) => {
-  if (err) error(err);
+  if (err) error(err, result);
 };
 
-const userSchema = new Schema({
+const settingsSchema = new Schema({
   twitchToken: String,
   twitchReauthId: String,
-  twitchSubscriptions: Object,
+  youtubeRefreshToken: String,
+  youtubeRtmpStreamId: String,
 }, { versionKey: false });
 
 /**
  * Gets settings from MongoDB.
  */
-userSchema.statics.getSettings = function () {
+settingsSchema.statics.getSettings = function () {
   return this.findOne({}, (err, result) => {
     errorHandler(err, result);
   });
@@ -23,7 +27,7 @@ userSchema.statics.getSettings = function () {
 /**
  * @param {String} twitchToken
  */
-userSchema.statics.setTwitchToken = function (twitchToken) {
+settingsSchema.statics.setTwitchToken = function (twitchToken) {
   return this.findOneAndUpdate({}, {
     twitchToken,
   }, { upsert: true }, (err, result) => {
@@ -35,7 +39,7 @@ userSchema.statics.setTwitchToken = function (twitchToken) {
 /**
  * @param {String} id twitchReauthId
  */
-userSchema.statics.setTwitchReauthId = function (twitchReauthId) {
+settingsSchema.statics.setTwitchReauthId = function (twitchReauthId) {
   return this.findOneAndUpdate({}, {
     twitchReauthId,
   }, { upsert: true }, errorHandler);
@@ -43,27 +47,22 @@ userSchema.statics.setTwitchReauthId = function (twitchReauthId) {
 
 /**
  *
- * @param {String} twitchUsername
- * @param {String} scheduledRenewalId
+ * @param {String} refreshToken
  */
-userSchema.statics.subscribe = function (twitchUsername, scheduledRenewalId) {
+settingsSchema.statics.setYoutubeRefreshToken = function (refreshToken) {
   return this.findOneAndUpdate({}, {
-    $set: {
-      [`twitchSubscriptions.${twitchUsername}`]: scheduledRenewalId,
-    },
+    youtubeRefreshToken: refreshToken,
   }, { upsert: true }, errorHandler);
 };
 
 /**
- *
- * @param {String} twitchUsername
+ * Save "config" of the YouTube LiveStream.
+ * @param {String} rtmpStreamId
  */
-userSchema.statics.unsubscribe = function (twitchUsername) {
+settingsSchema.statics.setYoutubeRtmpStreamId = function (rtmpStreamId) {
   return this.findOneAndUpdate({}, {
-    $unset: {
-      [`twitchSubscriptions.${twitchUsername}`]: '',
-    },
-  }, errorHandler);
+    youtubeRtmpStreamId: rtmpStreamId,
+  }, { upsert: true }, errorHandler);
 };
 
-module.exports = model('Settings', userSchema);
+module.exports = model('Settings', settingsSchema);

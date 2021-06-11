@@ -1,28 +1,27 @@
-# Discord Bot for Twitch.tv users' Twitch.tv videos' links generator
-*these links are chunked index-dvr.m3u8 files, that can be opened in Safari on iOS or within Chrome plugin `Native HLS Playback`*
+# Discord Bot for re-streaming Twitch.tv users' streams to YouTube (links generator)
 
-## ⚠ Outdated information ⚠
-> April's 30, 2021
-
-> Problem: periodically VODS' links are not available due to `Object not found` (don't know what happened internal of Twitch, but sh*t happens);
-
-> Solution: as for now, potentially solution is to re-stream to YouTube via ffmpeg. It will also be the feature of permanently store user's VODS on Google's servers
+## ⚠ Information ⚠
+Probably there will be no maintenance in the future, due to the YouTube's copyright policy.
 
 ## Stack
 - Node.js without `node-fetch`
   - express framework
 - [Mongodb's Atlas Cloud](https://cloud.mongodb.com/) Solution (as universal storage for scheduled events' ids for `SchedulerAPI`)
   - Mongoose (as ORM MongoDB)
-- [Scheduler API](https://schedulerapi.com/) (as HTTP webhook service for scheduled tasks like resubscribe or reauthorize)
+- **deprecated** [Scheduler API](https://schedulerapi.com/) (as HTTP webhook service for scheduled tasks like resubscribe or reauthorize)
 - [Discord API](https://discord.com/developers) (as UI)
 - [Twitch API](https://dev.twitch.tv/) (as service for twitch user's streams' events, authentication & subscriptions)
 - [Heroku](https://dashboard.heroku.com/) (to deploy and store env variables (or you can use your deployment, but you need to set env vars on your own as listed below))
+
+## Deploy
+- if using `Heroku` then you should install `node.js` and `ffmpeg` buildbpack (for example https://github.com/jonathanong/heroku-buildpack-ffmpeg-latest.git)
 
 ## Environment variables (and `globals.js`)
 - MODE=dev/production
 - HOST_URL=https://path.to.your.deployment.without.closing.slash
 - TWITCH_CLIENT_ID=<https://dev.twitch.tv/console>
 - TWITCH_CLIENT_SECRET=<https://dev.twitch.tv/console>
+- TWITCH_SIGNING_SECRET=<string between 10 and 100 characters that is used for Twitch EventSub API's requests verification>
 - DISCORD_WEBHOOK_PATH=/api/webhooks/**webhook or application id**/<webhook_token>
 - DISCORD_BOT_TOKEN=<navigate to https://discord.com/developers/applications and choose your application -> Bot>
 - DISCORD_APPLICATION_PUBLIC_KEY=<also retrieves on the https://discord.com/developers/applications page>
@@ -35,6 +34,7 @@
 
 ## Available commands:
 - **/auth** - to *generate* Twitch `access_token` using `ClientId` & `ClientSecret` and *create scheduled task to reauthorize in `TWITCH_TOKEN_LEASE_SECONDS`* (max available days until token lease ~ 60) https://dev.twitch.tv/docs/authentication#types-of-tokens
+- **/auth_youtube** - ... // TODO:
 - **/logout** - COMING NOT SO SOON
 - **/subscribe <twitch_username>** - to *create* Twitch subscription on user's streams' events and *create scheduled task to resubscribe in `SUBSCRIPTION_LEASE_SECONDS`* (max available 10 days) https://dev.twitch.tv/docs/api/webhooks-reference#subscribe-tounsubscribe-from-events `hub.lease_seconds`
 - **/unsubscribe <twitch_username>** - to *unsubscribe* from Twitch user's streams' events and *remove scheduled task to resubscribe*

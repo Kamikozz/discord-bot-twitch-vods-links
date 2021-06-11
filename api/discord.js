@@ -1,6 +1,11 @@
 const https = require('https');
 
-const { DISCORD_BOT_AVATAR_URL } = require('../globals');
+const {
+  DISCORD_BOT_AVATAR_URL,
+  DISCORD_BOT_CHANNEL_ID,
+  DISCORD_BOT_TOKEN,
+  DISCORD_WEBHOOK_PATH,
+} = require('../globals');
 
 const baseOptions = {
   hostname: 'discord.com',
@@ -13,7 +18,7 @@ const baseOptions = {
 const sendToDiscordFormatted = ({ title, imageUrl, vodUrl }) => {
   const options = {
     ...baseOptions,
-    path: process.env.DISCORD_WEBHOOK_PATH,
+    path: DISCORD_WEBHOOK_PATH,
   };
   const req = https.request(options);
   req.end(JSON.stringify({
@@ -23,8 +28,8 @@ const sendToDiscordFormatted = ({ title, imageUrl, vodUrl }) => {
       color: 6570405,
       image: {
         url: imageUrl,
-      }
-    }]
+      },
+    }],
   }));
 };
 
@@ -41,7 +46,7 @@ const editFollowupMessage = (applicationId, interactionToken, data) => {
 const createMessage = ({ message, allowedUsersMentionsIds = [] }) => {
   const options = {
     ...baseOptions,
-    path: process.env.DISCORD_WEBHOOK_PATH,
+    path: DISCORD_WEBHOOK_PATH,
   };
   const req = https.request(options);
   req.end(JSON.stringify({
@@ -53,12 +58,12 @@ const createMessage = ({ message, allowedUsersMentionsIds = [] }) => {
   }));
 };
 
-const getMessages = ({ channelId = process.env.DISCORD_BOT_CHANNEL_ID }) => {
+const getMessages = ({ channelId = DISCORD_BOT_CHANNEL_ID }) => {
   const options = {
     ...baseOptions,
     headers: {
       ...baseOptions.headers,
-      'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+      Authorization: `Bot ${DISCORD_BOT_TOKEN}`,
     },
     path: `/api/channels/${channelId}/messages`,
     method: 'GET',

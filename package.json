@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Alexey Shevchenko <kamikozz@mail.ru>",
@@ -15,6 +15,12 @@
     "express": "^4.17.1",
     "https": "^1.0.0",
     "mongoose": "^5.12.0",
-    "tweetnacl": "^1.0.3"
+    "tweetnacl": "^1.0.3",
+    "twitch-m3u8": "^1.1.4"
+  },
+  "devDependencies": {
+    "eslint": "^7.26.0",
+    "eslint-config-airbnb-base": "^14.2.1",
+    "eslint-plugin-import": "^2.23.2"
   }
 }
