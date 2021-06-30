@@ -79,7 +79,7 @@ function buildQueryString(paramsObj = {}) {
 
 const ffmpeg = {
   restream(m3u8Playlist, rtmpUri, errorCallback) {
-    const child = spawn('ffmpeg', [
+    const subprocess = spawn('ffmpeg', [
       '-fflags',
       '+igndts',
       // '-hide_banner', // attempt to avoid YouTube copyright policy
@@ -93,18 +93,21 @@ const ffmpeg = {
     ]);
 
     // use child.stdout.setEncoding('utf8'); if you want text chunks
-    child.stdout.on('data', (chunk) => {
+    subprocess.stdout.on('data', (chunk) => {
       // data from standard output is here as buffers
       log(`[FFMPEG] ${chunk.toString('utf8')}`);
     });
 
-    child.stderr.on('data', () => {
+    subprocess.stderr.on('data', () => {
       // console.log(chunk.toString('utf8'));
     });
 
-    child.on('close', (code) => {
+    subprocess.on('close', (code) => {
       log(`[FFMPEG] Child process exited with code ${code}`);
-      errorCallback();
+      setTimeout(() => {
+        subprocess.kill(); // Does not terminate the Node.js process in the shell.
+        errorCallback();
+      }, 1000);
     });
   },
 };
